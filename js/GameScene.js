@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png?v2', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v3', { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
@@ -139,7 +139,8 @@ class GameScene extends Phaser.Scene {
     } else if (act === GameState.ACTION_BUILD &&
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= GameState.BUILDING_WOOD_COST) {
-      preview = GameState.toPhaserId(GameState.TILE_BUILDING);
+      if (!this._pendingBuild) this._pendingBuild = { gid: Math.random() < 0.5 ? 4 : 5, flipX: Math.random() < 0.5 };
+      preview = this._pendingBuild.gid;
     } else if (act === GameState.ACTION_REFOREST &&
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= 1) {
@@ -147,7 +148,8 @@ class GameScene extends Phaser.Scene {
     }
 
     if (preview !== -1) {
-      this.previewLayer.putTileAt(preview, c.x, c.y);
+      const t = this.previewLayer.putTileAt(preview, c.x, c.y);
+      if (this._pendingBuild && t) t.flipX = this._pendingBuild.flipX;
       this.lastPreviewCell = { x: c.x, y: c.y };
     }
   }
@@ -213,9 +215,10 @@ class GameScene extends Phaser.Scene {
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
     td.biome = GameState.TILE_BUILDING;
-    const buildingGid = Math.random() < 0.5 ? 4 : 5; // variant 1 or 2
-    const buildTile = this.biomeLayer.putTileAt(buildingGid, c.x, c.y);
-    if (Math.random() < 0.5) buildTile.flipX = true;
+    const pending = this._pendingBuild || { gid: Math.random() < 0.5 ? 4 : 5, flipX: Math.random() < 0.5 };
+    const buildTile = this.biomeLayer.putTileAt(pending.gid, c.x, c.y);
+    if (buildTile) buildTile.flipX = pending.flipX;
+    this._pendingBuild = null;
     GameState.changeCommunity(2);
     GameState.changeKnowledge(1);
     GameState.changeWater(-1);
