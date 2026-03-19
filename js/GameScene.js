@@ -23,6 +23,11 @@ class GameScene extends Phaser.Scene {
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false };
     this.rainGraphics = this.add.graphics().setDepth(5);
+    this.rainOverlay  = this.add.rectangle(
+      0, UI_HEIGHT,
+      GameState.MAP_WIDTH * 32, GameState.MAP_HEIGHT * 32,
+      0x111833, 1
+    ).setOrigin(0, 0).setDepth(4).setAlpha(0);
 
     // Tilemap
     this.map = this.make.tilemap({
@@ -366,6 +371,7 @@ class GameScene extends Phaser.Scene {
         r.phaseTimer = 0;
         r.drops      = [];
         this.rainGraphics.clear();
+        this.rainOverlay.setAlpha(0);
         const gain = Math.round(5 + ((r.duration - 30) / 30) * 5); // 5–10 pts
         GameState.changeWater(gain);
         r.nextTimer = 120 + Math.random() * 180; // 120–300 s
@@ -373,6 +379,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
+    this.rainOverlay.setAlpha(intensity * 0.45);
     this._drawRain(dt, intensity);
   }
 
