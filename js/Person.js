@@ -9,7 +9,7 @@ class Person {
     this.stuckTime = 0;
     this.lastDist = 0;
 
-    this.sprite = scene.add.rectangle(x, y, 4, 8, 0x000000);
+    this.sprite = scene.add.rectangle(x, y, 3, 6, 0x000000);
     this.sprite.setDepth(10);
 
     this._pickNewTarget();

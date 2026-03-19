@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v2', { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
@@ -17,6 +17,11 @@ class GameScene extends Phaser.Scene {
     this.mouseHeld       = false;
     this.lastPreviewCell = null;
     this.woodAlertShown  = false;
+    this.treesCut        = 0;
+
+    // Rain
+    this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false };
+    this.rainGraphics = this.add.graphics().setDepth(5);
 
     // Tilemap
     this.map = this.make.tilemap({
@@ -167,6 +172,9 @@ class GameScene extends Phaser.Scene {
     GameState.changeLandHealth(-1);
     GameState.changeWater(-1);
 
+    this.treesCut++;
+    if (!this.rain.started && this.treesCut >= 5) this._startRain();
+
     if (!this.woodAlertShown && GameState.wood >= 5 && this.buildingCells.length === 0) {
       this.woodAlertShown = true;
       const ui = this.scene.get('UIScene');
@@ -254,6 +262,34 @@ class GameScene extends Phaser.Scene {
 
   // ── Water drain ─────────────────────────────────────────────────────────────
 
+  _desertTileAdjacentToWater() {
+    const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+    const candidates = [];
+
+    for (const cell of this.waterCells) {
+      for (const d of dirs) {
+        const nx = cell.x + d.x, ny = cell.y + d.y;
+        if (nx < 0 || ny < 0 || nx >= GameState.MAP_WIDTH || ny >= GameState.MAP_HEIGHT) continue;
+        const td = GameState.tiles[ny][nx];
+        if (td.biome === GameState.TILE_DESERT && !td.building) {
+          candidates.push({ x: nx, y: ny });
+        }
+      }
+    }
+
+    if (candidates.length) return candidates[Math.floor(Math.random() * candidates.length)];
+
+    // Fallback: any desert tile
+    const fallback = [];
+    for (let y = 0; y < GameState.MAP_HEIGHT; y++) {
+      for (let x = 0; x < GameState.MAP_WIDTH; x++) {
+        const td = GameState.tiles[y][x];
+        if (td.biome === GameState.TILE_DESERT && !td.building) fallback.push({ x, y });
+      }
+    }
+    return fallback.length ? fallback[Math.floor(Math.random() * fallback.length)] : null;
+  }
+
   _leastConnectedWaterTile() {
     const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
     let minN = 5, candidates = [];
@@ -269,6 +305,98 @@ class GameScene extends Phaser.Scene {
       else if (n === minN) { candidates.push(cell); }
     }
     return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+  }
+
+  // ── Rain ─────────────────────────────────────────────────────────────────────
+
+  _startRain() {
+    this.rain.duration   = 20 + Math.random() * 20; // 20 to 40 s
+    this.rain.state      = 'fadein';
+    this.rain.phaseTimer = 0;
+    this.rain.drops      = [];
+    this.rain.started    = true;
+  }
+
+  _updateRain(dt) {
+    const r = this.rain;
+
+    if (r.state === 'idle') {
+      if (r.started) {
+        r.nextTimer -= dt;
+        if (r.nextTimer <= 0) this._startRain();
+      }
+      return;
+    }
+
+    const FADE = 10;
+    r.phaseTimer += dt;
+    let intensity = 0;
+
+    if (r.state === 'fadein') {
+      intensity = Math.min(r.phaseTimer / FADE, 1);
+      if (r.phaseTimer >= FADE) { r.state = 'active'; r.phaseTimer = 0; }
+
+    } else if (r.state === 'active') {
+      intensity = 1;
+      if (r.phaseTimer >= r.duration) { r.state = 'fadeout'; r.phaseTimer = 0; }
+
+    } else if (r.state === 'fadeout') {
+      intensity = Math.max(1 - r.phaseTimer / FADE, 0);
+      if (r.phaseTimer >= FADE) {
+        r.state      = 'idle';
+        r.phaseTimer = 0;
+        r.drops      = [];
+        this.rainGraphics.clear();
+        const gain = Math.round(5 + ((r.duration - 30) / 30) * 5); // 5–10 pts
+        GameState.changeWater(gain);
+        r.nextTimer = 120 + Math.random() * 180; // 120–300 s
+        return;
+      }
+    }
+
+    this._drawRain(dt, intensity);
+  }
+
+  _drawRain(dt, intensity) {
+    const SPEED = 420;
+    const ANGLE = Math.PI / 6;            // 30° from vertical
+    const VX    = SPEED * Math.sin(ANGLE); // ≈ 210 px/s
+    const VY    = SPEED * Math.cos(ANGLE); // ≈ 364 px/s
+    const LDX   = 14 * Math.sin(ANGLE);
+    const LDY   = 14 * Math.cos(ANGLE);
+    const W     = GameState.MAP_WIDTH  * 32;
+    const H     = GameState.MAP_HEIGHT * 32 + UI_HEIGHT;
+
+    // Spawn drops proportional to intensity
+    const toSpawn = Math.floor(intensity * 220 * dt + Math.random());
+    for (let i = 0; i < toSpawn; i++) {
+      this.rain.drops.push({ x: Math.random() * (W + 300) - 300, y: UI_HEIGHT });
+    }
+
+    // Move & cull
+    this.rain.drops = this.rain.drops.filter(d => {
+      d.x += VX * dt;
+      d.y += VY * dt;
+      return d.y < H && d.x < W + 50;
+    });
+
+    // Draw — shadow pass then colour pass
+    this.rainGraphics.clear();
+    const SX = 1, SY = 1; // shadow offset
+    this.rainGraphics.lineStyle(1.5, 0x111122, 0.45);
+    for (const d of this.rain.drops) {
+      this.rainGraphics.beginPath();
+      this.rainGraphics.moveTo(d.x + SX, d.y + SY);
+      this.rainGraphics.lineTo(d.x + LDX + SX, d.y + LDY + SY);
+      this.rainGraphics.strokePath();
+    }
+    this.rainGraphics.lineStyle(1.5, 0xaaddff, 0.75);
+    for (const d of this.rain.drops) {
+      this.rainGraphics.beginPath();
+      this.rainGraphics.moveTo(d.x, d.y);
+      this.rainGraphics.lineTo(d.x + LDX, d.y + LDY);
+      this.rainGraphics.strokePath();
+    }
   }
 
   // ── Update ───────────────────────────────────────────────────────────────────
@@ -296,9 +424,18 @@ class GameScene extends Phaser.Scene {
             this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_DESERT), tile.x, tile.y);
             this.waterCells = this.waterCells.filter(c => !(c.x === tile.x && c.y === tile.y));
           }
+        } else if (this.waterCells.length < target) {
+          const tile = this._desertTileAdjacentToWater();
+          if (tile) {
+            GameState.tiles[tile.y][tile.x].biome = GameState.TILE_WATER;
+            this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_WATER), tile.x, tile.y);
+            this.waterCells.push({ x: tile.x, y: tile.y });
+          }
         }
       }
     }
+
+    this._updateRain(dt);
 
     for (const p of this.persons) p.update(delta);
   }

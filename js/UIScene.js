@@ -32,10 +32,10 @@ class UIScene extends Phaser.Scene {
 
     // Resource bars: [label, stateKey, x, color]
     const barDefs = [
-      { label: 'Land',      key: 'land_health',        x: 140, color: 0x55cc55 },
-      { label: 'Water',     key: 'water',              x: 340, color: 0x4499ff },
-      { label: 'Community', key: 'community',          x: 540, color: 0xffaa33 },
-      { label: 'Knowledge', key: 'cultural_knowledge', x: 740, color: 0xcc55ff },
+      { label: 'Land health', key: 'land_health',        x: 140, color: 0x55cc55 },
+      { label: 'Water',       key: 'water',              x: 340, color: 0x4499ff },
+      { label: 'Community',   key: 'community',          x: 540, color: 0xffaa33 },
+      { label: 'Knowledge',   key: 'cultural_knowledge', x: 740, color: 0xcc55ff },
     ];
 
     this._barFills = [];
@@ -129,8 +129,8 @@ class UIScene extends Phaser.Scene {
     bg.strokeRoundedRect(0, 0, W, H, 8);
 
     this.alertLabel = this.add.text(W / 2, H / 2 - 28, '', {
-      fontSize: '16px', fill: '#ffcc44', fontFamily: 'monospace',
-      align: 'center', wordWrap: { width: W - 48 }
+      fontSize: '20px', fill: '#ffcc44', fontFamily: 'monospace',
+      align: 'left', wordWrap: { width: W - 48 }
     }).setOrigin(0.5);
 
     const okBg = this.add.graphics();
@@ -216,7 +216,9 @@ class UIScene extends Phaser.Scene {
     if (this.gameOver) return;
 
     // Game Over
-    if (GameState.land_health === 0 || GameState.water === 0) {
+    const gameScene = this.scene.get('GameScene');
+    const noWaterTiles = gameScene && gameScene.waterCells && gameScene.waterCells.length === 0;
+    if (GameState.land_health === 0 || noWaterTiles) {
       this.gameOver    = true;
       this.overlayOpen = true;
       this.gameOverLabel.setText(
