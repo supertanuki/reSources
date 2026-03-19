@@ -19,6 +19,7 @@ class GameScene extends Phaser.Scene {
     this.woodAlertShown  = false;
     this.treesCut        = 0;
     this.growingTrees    = [];
+    this.gardens         = [];
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -145,6 +146,10 @@ class GameScene extends Phaser.Scene {
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= 1) {
       preview = 6; // gid 6 = sapling stage 1
+    } else if (act === GameState.ACTION_FARM &&
+               td.biome === GameState.TILE_DESERT && !td.building &&
+               GameState.wood >= 1) {
+      preview = 11; // gid 11 = garden stage 1
     }
 
     if (preview !== -1) {
@@ -165,6 +170,8 @@ class GameScene extends Phaser.Scene {
       this._tryBuild(c, td);
     } else if (act === GameState.ACTION_REFOREST && td.biome === GameState.TILE_DESERT && !td.building) {
       this._reforest(c, td);
+    } else if (act === GameState.ACTION_FARM && td.biome === GameState.TILE_DESERT && !td.building) {
+      this._placeFarm(c, td);
     }
   }
 
@@ -188,7 +195,7 @@ class GameScene extends Phaser.Scene {
     GameState.changeWater(-1);
 
     this.treesCut++;
-    if (!this.rain.started && this.treesCut >= 5) this._startRain();
+    if (!this.rain.started && GameState.water < 50) this._startRain();
 
     if (!this.woodAlertShown && GameState.wood >= 5 && this.buildingCells.length === 0) {
       this.woodAlertShown = true;
@@ -210,6 +217,14 @@ class GameScene extends Phaser.Scene {
     GameState.changeLandHealth(1);
   }
 
+  _placeFarm(c, td) {
+    if (GameState.wood < 1) return;
+    GameState.wood -= 1;
+    td.biome = GameState.TILE_FARM;
+    this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
+    this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
+  }
+
   _tryBuild(c, td) {
     if (GameState.wood < GameState.BUILDING_WOOD_COST) return;
     GameState.wood -= GameState.BUILDING_WOOD_COST;
@@ -220,7 +235,6 @@ class GameScene extends Phaser.Scene {
     if (buildTile) buildTile.flipX = pending.flipX;
     this._pendingBuild = null;
     GameState.changeCommunity(2);
-    GameState.changeKnowledge(1);
     GameState.changeWater(-1);
     const firstBuilding = this.buildingCells.length === 0;
     this.woodAlertShown = true;
@@ -323,6 +337,21 @@ class GameScene extends Phaser.Scene {
       else if (n === minN) { candidates.push(cell); }
     }
     return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+  }
+
+  // ── Garden growth ────────────────────────────────────────────────────────────
+
+  _updateGardens(dt) {
+    this.gardens = this.gardens.filter(g => {
+      g.timer += dt;
+      if (g.timer >= 20 && g.stage < 2) {
+        g.timer -= 20;
+        g.stage++;
+        this.biomeLayer.putTileAt(11 + g.stage, g.x, g.y); // gid 12 then 13
+        if (g.stage === 2) GameState.changeLandHealth(1);
+      }
+      return g.stage < 2;
+    });
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
@@ -493,6 +522,7 @@ class GameScene extends Phaser.Scene {
 
     this._updateRain(dt);
     this._updateGrowingTrees(dt);
+    this._updateGardens(dt);
 
     for (const p of this.persons) p.update(delta);
   }
