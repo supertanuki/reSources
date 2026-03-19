@@ -386,6 +386,7 @@ class GameScene extends Phaser.Scene {
           if (!this.gardenReadyAlertShown) {
             this.gardenReadyAlertShown = true;
             const ui = this.scene.get('UIScene');
+            GameState.current_action = GameState.ACTION_FARM;
             if (ui) ui.showAlert('Your first garden is ready!\nClick on it to harvest it.');
           }
         }
