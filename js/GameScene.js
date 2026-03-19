@@ -47,6 +47,7 @@ class GameScene extends Phaser.Scene {
     this.scene.launch('UIScene');
 
     this.time.delayedCall(5000, () => {
+      if (this.buildingCells.length > 0) return;
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(
         'To build a shelter, cut at least 5 trees.\n' +
