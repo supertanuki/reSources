@@ -18,6 +18,7 @@ class GameScene extends Phaser.Scene {
     this.lastPreviewCell = null;
     this.woodAlertShown  = false;
     this.treesCut        = 0;
+    this.growingTrees    = [];
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false };
@@ -131,7 +132,7 @@ class GameScene extends Phaser.Scene {
     } else if (act === GameState.ACTION_REFOREST &&
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= 1) {
-      preview = GameState.toPhaserId(GameState.TILE_FOREST);
+      preview = 6; // gid 6 = sapling stage 1
     }
 
     if (preview !== -1) {
@@ -168,6 +169,7 @@ class GameScene extends Phaser.Scene {
     td.has_tree = false;
     td.biome = GameState.TILE_DESERT;
     this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_DESERT), c.x, c.y);
+    this.growingTrees = this.growingTrees.filter(t => !(t.x === c.x && t.y === c.y));
     GameState.addWood(1);
     GameState.changeLandHealth(-1);
     GameState.changeWater(-1);
@@ -190,9 +192,9 @@ class GameScene extends Phaser.Scene {
     GameState.wood -= 1;
     td.biome = GameState.TILE_FOREST;
     td.has_tree = true;
-    this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_FOREST), c.x, c.y);
+    this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
+    this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.changeLandHealth(1);
-    GameState.changeWater(1);
   }
 
   _tryBuild(c, td) {
@@ -200,7 +202,9 @@ class GameScene extends Phaser.Scene {
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
     td.biome = GameState.TILE_BUILDING;
-    this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_BUILDING), c.x, c.y);
+    const buildingGid = Math.random() < 0.5 ? 4 : 5; // variant 1 or 2
+    const buildTile = this.biomeLayer.putTileAt(buildingGid, c.x, c.y);
+    if (Math.random() < 0.5) buildTile.flipX = true;
     GameState.changeCommunity(2);
     GameState.changeKnowledge(1);
     GameState.changeWater(-1);
@@ -305,6 +309,21 @@ class GameScene extends Phaser.Scene {
       else if (n === minN) { candidates.push(cell); }
     }
     return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+  }
+
+  // ── Tree growth ──────────────────────────────────────────────────────────────
+
+  _updateGrowingTrees(dt) {
+    this.growingTrees = this.growingTrees.filter(t => {
+      t.timer += dt;
+      if (t.timer >= 30 && t.stage < 2) {
+        t.timer -= 30;
+        t.stage++;
+        this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
+        if (t.stage === 2) GameState.changeWater(1);
+      }
+      return t.stage < 2; // remove once fully grown (stage 2 stays as gid 8)
+    });
   }
 
   // ── Rain ─────────────────────────────────────────────────────────────────────
@@ -436,6 +455,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this._updateRain(dt);
+    this._updateGrowingTrees(dt);
 
     for (const p of this.persons) p.update(delta);
   }
