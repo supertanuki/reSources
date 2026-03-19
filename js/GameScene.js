@@ -21,13 +21,18 @@ class GameScene extends Phaser.Scene {
     this.growingTrees    = [];
 
     // Rain
-    this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false };
+    this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
     this.rainGraphics = this.add.graphics().setDepth(5);
     this.rainOverlay  = this.add.rectangle(
       0, UI_HEIGHT,
       GameState.MAP_WIDTH * 32, GameState.MAP_HEIGHT * 32,
       0x111833, 1
     ).setOrigin(0, 0).setDepth(4).setAlpha(0);
+    this.lightningOverlay = this.add.rectangle(
+      0, 0,
+      GameState.MAP_WIDTH * 32, GameState.MAP_HEIGHT * 32 + UI_HEIGHT,
+      0xeeeeff, 1
+    ).setOrigin(0, 0).setDepth(6).setAlpha(0);
 
     // Tilemap
     this.map = this.make.tilemap({
@@ -335,11 +340,26 @@ class GameScene extends Phaser.Scene {
   // ── Rain ─────────────────────────────────────────────────────────────────────
 
   _startRain() {
-    this.rain.duration   = 20 + Math.random() * 20; // 20 to 40 s
-    this.rain.state      = 'fadein';
-    this.rain.phaseTimer = 0;
-    this.rain.drops      = [];
-    this.rain.started    = true;
+    this.rain.duration      = 20 + Math.random() * 20; // 20 to 40 s
+    this.rain.state         = 'fadein';
+    this.rain.phaseTimer    = 0;
+    this.rain.drops         = [];
+    this.rain.started       = true;
+    this.rain.lightningTimer = 0;
+    this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
+  }
+
+  _triggerLightning() {
+    const count = Math.random() < 0.4 ? 3 : 2;
+    let delay = 0;
+    for (let i = 0; i < count; i++) {
+      const alpha   = Math.max(0.15, 0.65 - i * 0.15);
+      const onDur   = 40  + Math.random() * 40;
+      const offDur  = 60  + Math.random() * 80;
+      this.tweens.add({ targets: this.lightningOverlay, alpha,  duration: 15, delay });
+      this.tweens.add({ targets: this.lightningOverlay, alpha: 0, duration: 25, delay: delay + onDur });
+      delay += onDur + offDur;
+    }
   }
 
   _updateRain(dt) {
@@ -363,6 +383,12 @@ class GameScene extends Phaser.Scene {
 
     } else if (r.state === 'active') {
       intensity = 1;
+      r.lightningTimer += dt;
+      if (r.lightningTimer >= r.lightningDelay) {
+        r.lightningTimer  = 0;
+        r.lightningDelay  = 5 + Math.random() * 8;
+        this._triggerLightning();
+      }
       if (r.phaseTimer >= r.duration) { r.state = 'fadeout'; r.phaseTimer = 0; }
 
     } else if (r.state === 'fadeout') {

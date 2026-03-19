@@ -68,7 +68,7 @@ class UIScene extends Phaser.Scene {
 
     // Buttons
     this._btnBuild    = this._makeButton(1110, 12, 120, 'BUILD',    () => this._setAction(GameState.ACTION_BUILD));
-    this._btnReforest = this._makeButton(1245, 12, 130, 'REFOREST', () => this._setAction(GameState.ACTION_REFOREST));
+    this._btnReforest = this._makeButton(1245, 12, 130, 'PLANT TREE', () => this._setAction(GameState.ACTION_REFOREST));
 
     this._refreshButtons();
   }
@@ -241,7 +241,7 @@ class UIScene extends Phaser.Scene {
         this.scene.pause('GameScene');
       } else if (GameState.water < 20 && !this.alertWaterTriggered) {
         this.alertWaterTriggered = true;
-        this.alertLabel.setText('Alert!\nWater level is critical (< 20%).');
+        this.alertLabel.setText('Alert!\nWater level is critical (< 20%).\nTry planting trees.');
         this.alertPopup.setVisible(true);
         this.overlayOpen = true;
         this.scene.pause('GameScene');
