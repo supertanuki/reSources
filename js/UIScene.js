@@ -116,7 +116,7 @@ class UIScene extends Phaser.Scene {
   // ── Alert popup ─────────────────────────────────────────────────────────────
 
   _buildAlertPopup() {
-    const W = 420, H = 170;
+    const W = 480, H = 210;
     const px = (GAME_WIDTH  - W) / 2;
     const py = (GAME_HEIGHT - H) / 2;
 
@@ -128,20 +128,20 @@ class UIScene extends Phaser.Scene {
     bg.lineStyle(2, 0xffaa00, 1);
     bg.strokeRoundedRect(0, 0, W, H, 8);
 
-    this.alertLabel = this.add.text(W / 2, 55, '', {
-      fontSize: '17px', fill: '#ffcc44', fontFamily: 'monospace',
-      align: 'center', wordWrap: { width: W - 40 }
+    this.alertLabel = this.add.text(W / 2, H / 2 - 28, '', {
+      fontSize: '16px', fill: '#ffcc44', fontFamily: 'monospace',
+      align: 'center', wordWrap: { width: W - 48 }
     }).setOrigin(0.5);
 
     const okBg = this.add.graphics();
     okBg.fillStyle(0x444444, 1);
-    okBg.fillRoundedRect(W / 2 - 50, H - 50, 100, 34, 4);
+    okBg.fillRoundedRect(W / 2 - 50, H - 52, 100, 34, 4);
 
-    const okTxt = this.add.text(W / 2, H - 33, 'OK', {
+    const okTxt = this.add.text(W / 2, H - 35, 'OK', {
       fontSize: '15px', fill: '#ffffff', fontFamily: 'monospace'
     }).setOrigin(0.5);
 
-    const okZone = this.add.zone(W / 2 - 50, H - 50, 100, 34)
+    const okZone = this.add.zone(W / 2 - 50, H - 52, 100, 34)
       .setOrigin(0).setInteractive({ useHandCursor: true });
     okZone.on('pointerdown', () => {
       this.alertPopup.setVisible(false);
@@ -150,6 +150,14 @@ class UIScene extends Phaser.Scene {
     });
 
     this.alertPopup.add([bg, this.alertLabel, okBg, okTxt, okZone]);
+  }
+
+  showAlert(text) {
+    if (this.overlayOpen) return;
+    this.alertLabel.setText(text);
+    this.alertPopup.setVisible(true);
+    this.overlayOpen = true;
+    this.scene.pause('GameScene');
   }
 
   // ── Game Over popup ──────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ class GameScene extends Phaser.Scene {
     this.persons         = [];
     this.mouseHeld       = false;
     this.lastPreviewCell = null;
+    this.woodAlertShown  = false;
 
     // Tilemap
     this.map = this.make.tilemap({
@@ -33,6 +34,14 @@ class GameScene extends Phaser.Scene {
     this._setupInput();
 
     this.scene.launch('UIScene');
+
+    this.time.delayedCall(5000, () => {
+      const ui = this.scene.get('UIScene');
+      if (ui) ui.showAlert(
+        'To build a shelter, cut at least 5 trees.\n' +
+        'You can click and hold to cut multiple trees at once.'
+      );
+    });
   }
 
   // ── World generation ────────────────────────────────────────────────────────
@@ -157,6 +166,15 @@ class GameScene extends Phaser.Scene {
     GameState.addWood(1);
     GameState.changeLandHealth(-1);
     GameState.changeWater(-1);
+
+    if (!this.woodAlertShown && GameState.wood >= 5 && this.buildingCells.length === 0) {
+      this.woodAlertShown = true;
+      const ui = this.scene.get('UIScene');
+      if (ui) ui.showAlert(
+        'Now that you have 5 pieces of wood, you can build your shelter.\n' +
+        'Click where you want to place your shelter.'
+      );
+    }
   }
 
   _reforest(c, td) {
@@ -178,8 +196,18 @@ class GameScene extends Phaser.Scene {
     GameState.changeCommunity(2);
     GameState.changeKnowledge(1);
     GameState.changeWater(-1);
+    const firstBuilding = this.buildingCells.length === 0;
+    this.woodAlertShown = true;
     this._registerBuilding(c);
     this._spawnPeople(c);
+
+    if (firstBuilding) {
+      const ui = this.scene.get('UIScene');
+      if (ui) ui.showAlert(
+        'Now that you have a shelter, you can expand your community by building other shelters.\n' +
+        'Pay attention to the damage you cause on the land health and on the water level.'
+      );
+    }
   }
 
   _registerBuilding(c) {
