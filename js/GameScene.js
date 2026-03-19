@@ -23,6 +23,8 @@ class GameScene extends Phaser.Scene {
     this.gardenReadyAlertShown   = false;
     this.gardenHarvestAlertShown = false;
     this.farmLimitAlertShown     = false;
+    this.gardenBlinkTimer        = 0;
+    this.gardenBlinkOn           = true;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -129,7 +131,7 @@ class GameScene extends Phaser.Scene {
       this.previewLayer.removeTileAt(this.lastPreviewCell.x, this.lastPreviewCell.y);
       this.lastPreviewCell = null;
     }
-    if (inUI) return;
+    if (inUI) { this.input.setDefaultCursor('default'); return; }
 
     const c = this._toCell(wx, wy);
     if (!this._valid(c)) return;
@@ -162,6 +164,13 @@ class GameScene extends Phaser.Scene {
         else if (g && (g.stage === 3 || g.stage === 4)) preview = 11;
       }
     }
+
+    // Show pointer cursor when hovering a harvestable garden
+    const hoverHarvestable = td.biome === GameState.TILE_FARM && (() => {
+      const g = this._getGarden(c.x, c.y);
+      return g && g.stage === 2;
+    })();
+    this.input.setDefaultCursor(hoverHarvestable ? 'pointer' : 'default');
 
     if (preview !== -1) {
       const t = this.previewLayer.putTileAt(preview, c.x, c.y);
@@ -241,7 +250,7 @@ class GameScene extends Phaser.Scene {
       if (!this.farmLimitAlertShown) {
         this.farmLimitAlertShown = true;
         const ui = this.scene.get('UIScene');
-        if (ui) ui.showAlert('The number of vegetable patches depends on the number of people in your community.');
+        if (ui) ui.showAlert('The number of farmland depends on the number of people in your community.');
       }
       return;
     }
@@ -386,8 +395,22 @@ class GameScene extends Phaser.Scene {
   }
 
   _updateGardens(dt) {
+    // Blink timer for stage-2 gardens
+    this.gardenBlinkTimer += dt;
+    if (this.gardenBlinkTimer >= 0.4) {
+      this.gardenBlinkTimer = 0;
+      this.gardenBlinkOn = !this.gardenBlinkOn;
+    }
+
     for (const g of this.gardens) {
       if (g.stage === 3 || g.stage === 4) continue; // withered or harvested, waiting for player action
+
+      // Apply blink alpha to stage-2 tiles
+      if (g.stage === 2) {
+        const tile = this.biomeLayer.getTileAt(g.x, g.y);
+        if (tile) tile.alpha = this.gardenBlinkOn ? 1 : 0.35;
+      }
+
       g.timer += dt;
       if (g.stage < 2 && g.timer >= 20) {
         g.timer -= 20;
@@ -403,6 +426,8 @@ class GameScene extends Phaser.Scene {
           }
         }
       } else if (g.stage === 2 && g.timer >= 10) {
+        const t2 = this.biomeLayer.getTileAt(g.x, g.y);
+        if (t2) t2.alpha = 1;
         g.stage = 3;
         g.timer = 0;
         this.biomeLayer.putTileAt(15, g.x, g.y); // gid 15 = withered
@@ -411,6 +436,8 @@ class GameScene extends Phaser.Scene {
   }
 
   _harvestGarden(c, g) {
+    const th = this.biomeLayer.getTileAt(c.x, c.y);
+    if (th) th.alpha = 1;
     g.stage = 4;
     g.timer = 0;
     this.biomeLayer.putTileAt(14, c.x, c.y); // gid 14 = harvested
