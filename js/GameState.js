@@ -20,6 +20,7 @@ const GameState = {
   community: 0,
   water: 100,
   current_action: 0,
+  shelterBuilt: false,
 
   tiles: [],
 
@@ -61,6 +62,7 @@ const GameState = {
     this.community = 0;
     this.water = 100;
     this.current_action = this.ACTION_BUILD;
+    this.shelterBuilt = false;
     this.initTiles();
   },
 };

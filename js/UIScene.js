@@ -138,7 +138,7 @@ class UIScene extends Phaser.Scene {
   _refreshButtons() {
     const canBuild = GameState.wood >= GameState.BUILDING_WOOD_COST;
     const canReforest = GameState.wood >= 1;
-    const canFarm = GameState.wood >= 1;
+    const canFarm = GameState.shelterBuilt && GameState.wood >= 1;
     this._drawButton(
       this._btnBuild,
       GameState.current_action === GameState.ACTION_BUILD,

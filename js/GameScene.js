@@ -16,10 +16,12 @@ class GameScene extends Phaser.Scene {
     this.persons         = [];
     this.mouseHeld       = false;
     this.lastPreviewCell = null;
-    this.woodAlertShown  = false;
-    this.treesCut        = 0;
-    this.growingTrees    = [];
-    this.gardens         = [];
+    this.woodAlertShown        = false;
+    this.treesCut              = 0;
+    this.growingTrees          = [];
+    this.gardens               = [];
+    this.gardenReadyAlertShown   = false;
+    this.gardenHarvestAlertShown = false;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -150,6 +152,14 @@ class GameScene extends Phaser.Scene {
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= 1) {
       preview = 11; // gid 11 = garden stage 1
+    } else if (td.biome === GameState.TILE_FARM) {
+      const g = this._getGarden(c.x, c.y);
+      if (act === GameState.ACTION_BUILD) {
+        preview = GameState.toPhaserId(GameState.TILE_DESERT);
+      } else if (act === GameState.ACTION_FARM) {
+        if (g && g.stage === 2)                                          preview = 14;
+        else if (g && (g.stage === 3 || g.stage === 4) && GameState.wood >= 1) preview = 11;
+      }
     }
 
     if (preview !== -1) {
@@ -172,6 +182,14 @@ class GameScene extends Phaser.Scene {
       this._reforest(c, td);
     } else if (act === GameState.ACTION_FARM && td.biome === GameState.TILE_DESERT && !td.building) {
       this._placeFarm(c, td);
+    } else if (td.biome === GameState.TILE_FARM) {
+      const g = this._getGarden(c.x, c.y);
+      if (act === GameState.ACTION_BUILD) {
+        this._removeGarden(c, td, g);
+      } else if (act === GameState.ACTION_FARM) {
+        if (g && g.stage === 2)                        this._harvestGarden(c, g);
+        else if (g && (g.stage === 3 || g.stage === 4)) this._replantGarden(c, g);
+      }
     }
   }
 
@@ -237,6 +255,7 @@ class GameScene extends Phaser.Scene {
     GameState.changeCommunity(2);
     GameState.changeWater(-1);
     const firstBuilding = this.buildingCells.length === 0;
+    if (firstBuilding) GameState.shelterBuilt = true;
     this.woodAlertShown = true;
     this._registerBuilding(c);
     this._spawnPeople(c);
@@ -244,8 +263,7 @@ class GameScene extends Phaser.Scene {
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(
-        'Now that you have a shelter, you can expand your community by building other shelters.\n' +
-        'Pay attention to the damage you cause on the land health and on the water level.'
+        'Now that you have a shelter, you need to grow food so that your community can eat.'
       );
     }
   }
@@ -283,6 +301,16 @@ class GameScene extends Phaser.Scene {
   getRandomBuildingPosition() {
     if (!this.buildingCells.length) return { x: 960, y: 512 + UI_HEIGHT };
     const c = this.buildingCells[Math.floor(Math.random() * this.buildingCells.length)];
+    return { x: c.x * 32 + 16, y: c.y * 32 + 16 + UI_HEIGHT };
+  }
+
+  getRandomDestinationPosition() {
+    const all = [
+      ...this.buildingCells,
+      ...this.gardens.map(g => ({ x: g.x, y: g.y })),
+    ];
+    if (!all.length) return this.getRandomBuildingPosition();
+    const c = all[Math.floor(Math.random() * all.length)];
     return { x: c.x * 32 + 16, y: c.y * 32 + 16 + UI_HEIGHT };
   }
 
@@ -341,17 +369,62 @@ class GameScene extends Phaser.Scene {
 
   // ── Garden growth ────────────────────────────────────────────────────────────
 
+  _getGarden(x, y) {
+    return this.gardens.find(g => g.x === x && g.y === y) || null;
+  }
+
   _updateGardens(dt) {
-    this.gardens = this.gardens.filter(g => {
+    for (const g of this.gardens) {
+      if (g.stage === 3 || g.stage === 4) continue; // withered or harvested, waiting for player action
       g.timer += dt;
-      if (g.timer >= 20 && g.stage < 2) {
+      if (g.stage < 2 && g.timer >= 20) {
         g.timer -= 20;
         g.stage++;
         this.biomeLayer.putTileAt(11 + g.stage, g.x, g.y); // gid 12 then 13
-        if (g.stage === 2) GameState.changeLandHealth(1);
+        if (g.stage === 2) {
+          GameState.changeLandHealth(1);
+          if (!this.gardenReadyAlertShown) {
+            this.gardenReadyAlertShown = true;
+            const ui = this.scene.get('UIScene');
+            if (ui) ui.showAlert('Your first garden is ready!\nClick on it to harvest it.');
+          }
+        }
+      } else if (g.stage === 2 && g.timer >= 10) {
+        g.stage = 3;
+        g.timer = 0;
+        this.biomeLayer.putTileAt(15, g.x, g.y); // gid 15 = withered
       }
-      return g.stage < 2;
-    });
+    }
+  }
+
+  _harvestGarden(c, g) {
+    g.stage = 4;
+    g.timer = 0;
+    this.biomeLayer.putTileAt(14, c.x, c.y); // gid 14 = harvested
+    this.previewLayer.removeTileAt(c.x, c.y);
+    this.lastPreviewCell = null;
+    if (!this.gardenHarvestAlertShown) {
+      this.gardenHarvestAlertShown = true;
+      const ui = this.scene.get('UIScene');
+      if (ui) ui.showAlert(
+        'Now, you can expand your community by building other shelters.\n' +
+        'Pay attention to the damage you cause on the land health and on the water level.'
+      );
+    }
+  }
+
+  _removeGarden(c, td, g) {
+    td.biome = GameState.TILE_DESERT;
+    this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_DESERT), c.x, c.y);
+    this.gardens = this.gardens.filter(gg => gg !== g);
+  }
+
+  _replantGarden(c, g) {
+    if (GameState.wood < 1) return;
+    GameState.wood -= 1;
+    g.stage = 0;
+    g.timer = 0;
+    this.biomeLayer.putTileAt(11, c.x, c.y);
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────

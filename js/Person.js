@@ -64,8 +64,8 @@ class Person {
   }
 
   _pickNewTarget() {
-    const pos = this.scene.getRandomBuildingPosition
-      ? this.scene.getRandomBuildingPosition()
+    const pos = this.scene.getRandomDestinationPosition
+      ? this.scene.getRandomDestinationPosition()
       : { x: this.x, y: this.y };
     this.targetX = pos.x + (Math.random() * 16 - 8);
     this.targetY = pos.y + (Math.random() * 16 - 8);
