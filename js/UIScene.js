@@ -73,7 +73,7 @@ class UIScene extends Phaser.Scene {
 
     // Wood counter
     this.woodText = this.add
-      .text(945, H / 2, "Wood: 0 / 5", {
+      .text(745, H / 2, "Wood: 0 / 5", {
         fontSize: "14px",
         fill: "#ddbb55",
         fontFamily: "monospace",
@@ -81,13 +81,13 @@ class UIScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
 
     // Buttons
-    this._btnBuild = this._makeButton(1110, 12, 120, "BUILD", () =>
+    this._btnBuild = this._makeButton(910, 12, 120, "BUILD", () =>
       this._setAction(GameState.ACTION_BUILD),
     );
-    this._btnReforest = this._makeButton(1245, 12, 130, "PLANT TREE", () =>
+    this._btnReforest = this._makeButton(1045, 12, 130, "PLANT TREE", () =>
       this._setAction(GameState.ACTION_REFOREST),
     );
-    this._btnFarm = this._makeButton(1390, 12, 100, "FARM", () =>
+    this._btnFarm = this._makeButton(1190, 12, 100, "FARM", () =>
       this._setAction(GameState.ACTION_FARM),
     );
 
