@@ -71,25 +71,10 @@ class UIScene extends Phaser.Scene {
       this._barFills[this._barFills.length - 1].valText = valText;
     }
 
-    // Wood counter
-    this.woodText = this.add
-      .text(745, H / 2, "Wood: 0 / 5", {
-        fontSize: "14px",
-        fill: "#ddbb55",
-        fontFamily: "monospace",
-      })
-      .setOrigin(0, 0.5);
-
     // Buttons
-    this._btnBuild = this._makeButton(910, 12, 120, "BUILD", () =>
-      this._setAction(GameState.ACTION_BUILD),
-    );
-    this._btnReforest = this._makeButton(1045, 12, 130, "PLANT TREE", () =>
-      this._setAction(GameState.ACTION_REFOREST),
-    );
-    this._btnFarm = this._makeButton(1190, 12, 100, "FARM", () =>
-      this._setAction(GameState.ACTION_FARM),
-    );
+    this._btnBuild    = this._makeButton(910,  12, 150, 'BUILD\n0/5 wood',     () => this._setAction(GameState.ACTION_BUILD));
+    this._btnReforest = this._makeButton(1075, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
+    this._btnFarm     = this._makeButton(1240, 12, 100, 'FARM',                 () => this._setAction(GameState.ACTION_FARM));
 
     this._refreshButtons();
   }
@@ -126,8 +111,7 @@ class UIScene extends Phaser.Scene {
     btn.bg.fillRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
     btn.bg.strokeRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
     btn.txt.setAlpha(disabled ? 0.5 : 1);
-    if (disabled) btn.zone.removeInteractive();
-    else btn.zone.setInteractive({ useHandCursor: true });
+    btn.zone.setInteractive({ useHandCursor: true });
   }
 
   _setAction(action) {
@@ -136,24 +120,16 @@ class UIScene extends Phaser.Scene {
   }
 
   _refreshButtons() {
-    const canBuild = GameState.wood >= GameState.BUILDING_WOOD_COST;
+    const canBuild    = GameState.wood >= GameState.BUILDING_WOOD_COST &&
+                        (!GameState.shelterBuilt || GameState.gardenPlaced);
     const canReforest = GameState.wood >= 1;
-    const canFarm = GameState.shelterBuilt && GameState.wood >= 1;
-    this._drawButton(
-      this._btnBuild,
-      GameState.current_action === GameState.ACTION_BUILD,
-      !canBuild,
-    );
-    this._drawButton(
-      this._btnReforest,
-      GameState.current_action === GameState.ACTION_REFOREST,
-      !canReforest,
-    );
-    this._drawButton(
-      this._btnFarm,
-      GameState.current_action === GameState.ACTION_FARM,
-      !canFarm,
-    );
+    const canFarm     = GameState.shelterBuilt;
+    this._btnBuild.txt.setText(`BUILD\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} wood`);
+    this._btnReforest.txt.setText(`PLANT TREE\n${GameState.wood}/1 wood`);
+    this._drawButton(this._btnBuild,    GameState.current_action === GameState.ACTION_BUILD,    !canBuild);
+    this._drawButton(this._btnReforest, GameState.current_action === GameState.ACTION_REFOREST, !canReforest);
+    this._drawButton(this._btnFarm,     GameState.current_action === GameState.ACTION_FARM,     !canFarm);
+    if (!canFarm) this._btnFarm.zone.removeInteractive();
   }
 
   // ── Alert popup ─────────────────────────────────────────────────────────────
@@ -291,9 +267,6 @@ class UIScene extends Phaser.Scene {
   update() {
     this._updateBars();
     this._refreshButtons();
-    this.woodText.setText(
-      `Wood: ${GameState.wood} / ${GameState.BUILDING_WOOD_COST}`,
-    );
 
     if (this.gameOver) return;
 

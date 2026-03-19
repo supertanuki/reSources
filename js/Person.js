@@ -41,7 +41,10 @@ class Person {
     const nextX = this.x + (moveX / ml) * this.speed * dt;
     const nextY = this.y + (moveY / ml) * this.speed * dt;
 
-    const blocked = this.scene.isDesertWorldPosition &&
+    const onDesert = !this.scene.isDesertWorldPosition ||
+                     this.scene.isDesertWorldPosition(this.x, this.y);
+    const blocked = onDesert &&
+                    this.scene.isDesertWorldPosition &&
                     !this.scene.isDesertWorldPosition(nextX, nextY);
 
     if (blocked) {

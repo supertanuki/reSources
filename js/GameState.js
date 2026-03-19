@@ -21,6 +21,7 @@ const GameState = {
   water: 100,
   current_action: 0,
   shelterBuilt: false,
+  gardenPlaced: false,
 
   tiles: [],
 
@@ -63,6 +64,7 @@ const GameState = {
     this.water = 100;
     this.current_action = this.ACTION_BUILD;
     this.shelterBuilt = false;
+    this.gardenPlaced = false;
     this.initTiles();
   },
 };
