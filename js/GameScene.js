@@ -38,22 +38,30 @@ class GameScene extends Phaser.Scene {
   // ── World generation ────────────────────────────────────────────────────────
 
   _generateWorld() {
-    const noise = new SimpleNoise(Math.random() * 0xffffff | 0);
+    const MIN_WATER = 20;
 
-    for (let y = 0; y < GameState.MAP_HEIGHT; y++) {
-      for (let x = 0; x < GameState.MAP_WIDTH; x++) {
-        const n = noise.octave(x, y, 3, 32.0, 0.6);
-        const td = GameState.tiles[y][x];
+    do {
+      this.waterCells = [];
+      GameState.initTiles();
 
-        if      (n < -0.3) { td.biome = GameState.TILE_WATER; }
-        else if (n <  0.0) { td.biome = GameState.TILE_FOREST; td.has_tree = true; }
-        else               { td.biome = GameState.TILE_DESERT; }
+      const noise = new SimpleNoise(Math.random() * 0xffffff | 0);
 
-        this.biomeLayer.putTileAt(GameState.toPhaserId(td.biome), x, y);
+      for (let y = 0; y < GameState.MAP_HEIGHT; y++) {
+        for (let x = 0; x < GameState.MAP_WIDTH; x++) {
+          const n = noise.octave(x, y, 3, 32.0, 0.6);
+          const td = GameState.tiles[y][x];
 
-        if (td.biome === GameState.TILE_WATER) this.waterCells.push({ x, y });
+          if      (n < -0.3) { td.biome = GameState.TILE_WATER; }
+          else if (n <  0.0) { td.biome = GameState.TILE_FOREST; td.has_tree = true; }
+          else               { td.biome = GameState.TILE_DESERT; }
+
+          this.biomeLayer.putTileAt(GameState.toPhaserId(td.biome), x, y);
+
+          if (td.biome === GameState.TILE_WATER) this.waterCells.push({ x, y });
+        }
       }
-    }
+    } while (this.waterCells.length < MIN_WATER);
+
     this.initialWaterCount = this.waterCells.length;
   }
 

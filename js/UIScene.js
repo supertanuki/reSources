@@ -25,7 +25,7 @@ class UIScene extends Phaser.Scene {
     bg.lineBetween(0, H - 1, W, H - 1);
 
     // Title
-    this.add.text(14, H / 2, 'NO BORDERS', {
+    this.add.text(14, H / 2, 'reSources', {
       fontSize: '15px', fontStyle: 'bold',
       fill: '#cccccc', fontFamily: 'monospace'
     }).setOrigin(0, 0.5);
@@ -90,13 +90,13 @@ class UIScene extends Phaser.Scene {
     btn.disabled = disabled;
     btn.active   = active;
     btn.bg.clear();
-    const color = disabled ? 0x222222 : (active ? 0x2d6e2d : 0x3a3a3a);
-    const border = disabled ? 0x333333 : (active ? 0x55cc55 : 0x666666);
+    const color = disabled ? 0x2a2a2a : (active ? 0x2d6e2d : 0x3a3a3a);
+    const border = disabled ? 0x555555 : (active ? 0x55cc55 : 0x888888);
     btn.bg.lineStyle(1, border, 1);
     btn.bg.fillStyle(color, 1);
     btn.bg.fillRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
     btn.bg.strokeRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
-    btn.txt.setAlpha(disabled ? 0.35 : 1);
+    btn.txt.setAlpha(disabled ? 0.5 : 1);
     if (disabled) btn.zone.removeInteractive();
     else          btn.zone.setInteractive({ useHandCursor: true });
   }
@@ -178,7 +178,7 @@ class UIScene extends Phaser.Scene {
     replayBg.lineStyle(1, 0x55cc55, 1);
     replayBg.strokeRoundedRect(W / 2 - 80, H - 60, 160, 38, 4);
 
-    const replayTxt = this.add.text(W / 2, H - 41, 'REJOUER', {
+    const replayTxt = this.add.text(W / 2, H - 41, 'REPLAY', {
       fontSize: '15px', fontStyle: 'bold', fill: '#ffffff', fontFamily: 'monospace'
     }).setOrigin(0.5);
 
