@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png?v3', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v4', { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
@@ -25,6 +25,8 @@ class GameScene extends Phaser.Scene {
     this.farmLimitAlertShown     = false;
     this.gardenBlinkTimer        = 0;
     this.gardenBlinkOn           = true;
+    this.waterCrisisTimer        = 0;
+    this.waterCrisisTriggered    = false;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -250,7 +252,7 @@ class GameScene extends Phaser.Scene {
       if (!this.farmLimitAlertShown) {
         this.farmLimitAlertShown = true;
         const ui = this.scene.get('UIScene');
-        if (ui) ui.showAlert('The number of farmland depends on the number of people in your community.');
+        if (ui) ui.showAlert('The number of farmland depends on your community size. Build more shelters to welcome more people.');
       }
       return;
     }
@@ -405,10 +407,10 @@ class GameScene extends Phaser.Scene {
     for (const g of this.gardens) {
       if (g.stage === 3 || g.stage === 4) continue; // withered or harvested, waiting for player action
 
-      // Apply blink alpha to stage-2 tiles
+      // Apply blink alpha to stage-2 tiles only in the last 5s before withering
       if (g.stage === 2) {
         const tile = this.biomeLayer.getTileAt(g.x, g.y);
-        if (tile) tile.alpha = this.gardenBlinkOn ? 1 : 0.35;
+        if (tile) tile.alpha = g.timer >= 5 && this.gardenBlinkOn ? 0.35 : 1;
       }
 
       g.timer += dt;
@@ -422,7 +424,7 @@ class GameScene extends Phaser.Scene {
             this.gardenReadyAlertShown = true;
             const ui = this.scene.get('UIScene');
             GameState.current_action = GameState.ACTION_FARM;
-            if (ui) ui.showAlert('Your first garden is ready!\nClick on it to harvest it.');
+            if (ui) ui.showAlert('Your first garden is ready!\nClick quickly to harvest before the produce goes off.');
           }
         }
       } else if (g.stage === 2 && g.timer >= 10) {
@@ -454,6 +456,7 @@ class GameScene extends Phaser.Scene {
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(
         'Now, you can expand your community by building other shelters.\n' +
+        'You can replant in the same place where you harvested.\n' +
         'Pay attention to the damage you cause on the land health and on the water level.'
       );
     }
@@ -636,6 +639,15 @@ class GameScene extends Phaser.Scene {
           }
         }
       }
+    }
+
+    // Water crisis: game over only after 10s with no water tiles
+    if (this.waterCells.length === 0) {
+      this.waterCrisisTimer += dt;
+      if (this.waterCrisisTimer >= 10) this.waterCrisisTriggered = true;
+    } else {
+      this.waterCrisisTimer = 0;
+      this.waterCrisisTriggered = false;
     }
 
     this._updateRain(dt);

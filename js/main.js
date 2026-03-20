@@ -6,6 +6,7 @@ const GAME_HEIGHT = UI_HEIGHT + 32 * 32; // 70 + 1024 = 1094
 const config = {
   type: Phaser.AUTO,
   backgroundColor: '#111111',
+  pixelArt: true,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

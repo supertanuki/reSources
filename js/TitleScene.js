@@ -3,7 +3,7 @@ class TitleScene extends Phaser.Scene {
 
   create() {
     const W = GAME_WIDTH, H = GAME_HEIGHT;
-    const cx = W / 2, cy = H / 2;
+    const cx = W / 2, cy = H / 2 - 100;
 
     // Background
     const bg = this.add.graphics();
@@ -23,12 +23,16 @@ class TitleScene extends Phaser.Scene {
 
     // Tagline
     this.add.text(cx, cy + 10, 'Rise your community, regenerate resources', {
-      fontSize: '20px', fontFamily: 'monospace', fill: '#557755',
+      fontSize: '22px', fontFamily: 'monospace', fill: '#557755',
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy + 120, 'Through human actions, particularly those of the most greedy, the planet has been turned into a vast desert. Years later, communities are trying to establish themselves by managing resources more effectively and respecting planetary boundaries. ', {
+      fontSize: '20px', fontFamily: 'monospace', fill: '#ffffff', wordWrap: { width: 550 },
     }).setOrigin(0.5);
 
     // Play button
-    const btnW = 180, btnH = 52;
-    const btnX = cx - btnW / 2, btnY = cy + 70;
+    const btnW = 320, btnH = 52;
+    const btnX = cx - btnW / 2, btnY = cy + 220;
 
     const btnBg = this.add.graphics();
     btnBg.fillStyle(0x2d6e2d, 1);
@@ -36,7 +40,7 @@ class TitleScene extends Phaser.Scene {
     btnBg.lineStyle(2, 0x55cc55, 1);
     btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
 
-    this.add.text(cx, btnY + btnH / 2, 'PLAY', {
+    this.add.text(cx, btnY + btnH / 2, 'CREATE MY COMMUNITY', {
       fontSize: '22px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
     }).setOrigin(0.5);
 
@@ -59,6 +63,7 @@ class TitleScene extends Phaser.Scene {
       btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
     });
     zone.on('pointerdown', () => {
+      this.scale.startFullscreen();
       this.scene.start('GameScene');
     });
   }

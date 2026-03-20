@@ -135,8 +135,8 @@ class UIScene extends Phaser.Scene {
   // ── Alert popup ─────────────────────────────────────────────────────────────
 
   _buildAlertPopup() {
-    const W = 480,
-      H = 210;
+    const W = 560,
+      H = 260;
     const px = (GAME_WIDTH - W) / 2;
     const py = (GAME_HEIGHT - H) / 2;
 
@@ -272,8 +272,7 @@ class UIScene extends Phaser.Scene {
 
     // Game Over
     const gameScene = this.scene.get("GameScene");
-    const noWaterTiles =
-      gameScene && gameScene.waterCells && gameScene.waterCells.length === 0;
+    const noWaterTiles = gameScene && gameScene.waterCrisisTriggered;
     if (GameState.land_health === 0 || noWaterTiles) {
       this.gameOver = true;
       this.overlayOpen = true;
