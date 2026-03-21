@@ -32,7 +32,7 @@ class TitleScene extends Phaser.Scene {
 
     // Play button
     const btnW = 320, btnH = 52;
-    const btnX = cx - btnW / 2, btnY = cy + 220;
+    const btnX = cx - btnW / 2, btnY = cy + 240;
 
     const btnBg = this.add.graphics();
     btnBg.fillStyle(0x2d6e2d, 1);

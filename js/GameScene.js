@@ -452,7 +452,6 @@ class GameScene extends Phaser.Scene {
     }
     if (!this.gardenHarvestAlertShown) {
       this.gardenHarvestAlertShown = true;
-      GameState.current_action = GameState.ACTION_BUILD;
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(
         'Now, you can expand your community by building other shelters.\n' +

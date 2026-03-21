@@ -138,7 +138,7 @@ class UIScene extends Phaser.Scene {
     const W = 560,
       H = 260;
     const px = (GAME_WIDTH - W) / 2;
-    const py = (GAME_HEIGHT - H) / 2;
+    const py = (GAME_HEIGHT - H) - 20;
 
     this.alertPopup = this.add
       .container(px, py)
