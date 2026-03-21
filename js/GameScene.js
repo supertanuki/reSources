@@ -196,11 +196,12 @@ class GameScene extends Phaser.Scene {
       this._placeFarm(c, td);
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
-      if (act === GameState.ACTION_BUILD) {
+      if (g && g.stage === 2) {
+        this._harvestGarden(c, g);
+      } else if (act === GameState.ACTION_BUILD) {
         this._removeGarden(c, td, g);
       } else if (act === GameState.ACTION_FARM) {
-        if (g && g.stage === 2)                        this._harvestGarden(c, g);
-        else if (g && (g.stage === 3 || g.stage === 4)) this._replantGarden(c, g);
+        if (g && (g.stage === 3 || g.stage === 4)) this._replantGarden(c, g);
       }
     }
   }
@@ -283,9 +284,9 @@ class GameScene extends Phaser.Scene {
 
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
-      GameState.current_action = GameState.ACTION_FARM;
       if (ui) ui.showAlert(
-        'Now that you have a shelter, you need to grow food so that your community can eat.'
+        'Now that you have a shelter, you need to grow food so that your community can eat.\n' +
+        'Click on the Farm button then place a farmland wherever you want.'
       );
     }
   }
@@ -423,7 +424,6 @@ class GameScene extends Phaser.Scene {
           if (!this.gardenReadyAlertShown) {
             this.gardenReadyAlertShown = true;
             const ui = this.scene.get('UIScene');
-            GameState.current_action = GameState.ACTION_FARM;
             if (ui) ui.showAlert('Your first garden is ready!\nClick quickly to harvest before the produce goes off.');
           }
         }
@@ -446,6 +446,7 @@ class GameScene extends Phaser.Scene {
     this.previewLayer.removeTileAt(c.x, c.y);
     this.lastPreviewCell = null;
     GameState.changeCommunity(1);
+    GameState.wood += 1;
     if (this.persons.length < this.buildingCells.length * 4) {
       const spawnPos = this._randomDesertNear(c);
       this.persons.push(new Person(this, spawnPos.x, spawnPos.y));
@@ -454,7 +455,7 @@ class GameScene extends Phaser.Scene {
       this.gardenHarvestAlertShown = true;
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(
-        'Now, you can expand your community by building other shelters.\n' +
+        'Farming give food and wood. Now, you can expand your community by building other shelters.\n' +
         'You can replant in the same place where you harvested.\n' +
         'Pay attention to the damage you cause on the land health and on the water level.'
       );
