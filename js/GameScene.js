@@ -155,7 +155,8 @@ class GameScene extends Phaser.Scene {
       preview = 6; // gid 6 = sapling stage 1
     } else if (act === GameState.ACTION_FARM &&
                td.biome === GameState.TILE_DESERT && !td.building &&
-               this.gardens.length < this.persons.length) {
+               this.gardens.length < this.persons.length &&
+               GameState.wood >= 1) {
       preview = 11; // gid 11 = garden stage 1
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
@@ -167,12 +168,12 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Show pointer cursor when hovering a harvestable garden
+    // Pointer cursor when hovering a harvestable garden (any mode) or any actionable tile
     const hoverHarvestable = td.biome === GameState.TILE_FARM && (() => {
       const g = this._getGarden(c.x, c.y);
       return g && g.stage === 2;
     })();
-    this.input.setDefaultCursor(hoverHarvestable ? 'pointer' : 'default');
+    this.input.setDefaultCursor(preview !== -1 || hoverHarvestable ? 'pointer' : 'default');
 
     if (preview !== -1) {
       const t = this.previewLayer.putTileAt(preview, c.x, c.y);
@@ -258,6 +259,8 @@ class GameScene extends Phaser.Scene {
       return;
     }
     this.farmLimitAlertShown = false;
+    if (GameState.wood < 1) return;
+    GameState.wood -= 1;
     GameState.changeWater(-2);
     td.biome = GameState.TILE_FARM;
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1

@@ -73,8 +73,13 @@ class UIScene extends Phaser.Scene {
 
     // Buttons
     this._btnBuild    = this._makeButton(910,  12, 150, 'BUILD\n0/5 wood',     () => this._setAction(GameState.ACTION_BUILD));
-    this._btnReforest = this._makeButton(1075, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
-    this._btnFarm     = this._makeButton(1240, 12, 100, 'FARM',                 () => this._setAction(GameState.ACTION_FARM));
+    this._btnFarm     = this._makeButton(1075, 12, 120, 'FARM\n0/1 wood',       () => this._setAction(GameState.ACTION_FARM));
+    this._btnReforest = this._makeButton(1210, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
+
+    this.farmUnlocked     = false;
+    this.reforestUnlocked = false;
+    this._setBtnVisible(this._btnFarm,     false);
+    this._setBtnVisible(this._btnReforest, false);
 
     this._refreshButtons();
   }
@@ -100,6 +105,13 @@ class UIScene extends Phaser.Scene {
     return { bg, txt, zone, x, y, w, h, disabled: false, active: false };
   }
 
+  _setBtnVisible(btn, visible) {
+    btn.bg.setVisible(visible);
+    btn.txt.setVisible(visible);
+    if (visible) btn.zone.setInteractive({ useHandCursor: true });
+    else btn.zone.removeInteractive();
+  }
+
   _drawButton(btn, active, disabled) {
     btn.disabled = disabled;
     btn.active = active;
@@ -123,13 +135,17 @@ class UIScene extends Phaser.Scene {
     const canBuild    = GameState.wood >= GameState.BUILDING_WOOD_COST &&
                         (!GameState.shelterBuilt || GameState.gardenPlaced);
     const canReforest = GameState.wood >= 1;
-    const canFarm     = GameState.shelterBuilt;
+    const canFarm     = GameState.wood >= 1;
     this._btnBuild.txt.setText(`BUILD\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} wood`);
-    this._btnReforest.txt.setText(`PLANT TREE\n${GameState.wood}/1 wood`);
-    this._drawButton(this._btnBuild,    GameState.current_action === GameState.ACTION_BUILD,    !canBuild);
-    this._drawButton(this._btnReforest, GameState.current_action === GameState.ACTION_REFOREST, !canReforest);
-    this._drawButton(this._btnFarm,     GameState.current_action === GameState.ACTION_FARM,     !canFarm);
-    if (!canFarm) this._btnFarm.zone.removeInteractive();
+    this._drawButton(this._btnBuild, GameState.current_action === GameState.ACTION_BUILD, !canBuild);
+    if (this.farmUnlocked) {
+      this._btnFarm.txt.setText(`FARM\n${GameState.wood}/1 wood`);
+      this._drawButton(this._btnFarm, GameState.current_action === GameState.ACTION_FARM, !canFarm);
+    }
+    if (this.reforestUnlocked) {
+      this._btnReforest.txt.setText(`PLANT TREE\n${GameState.wood}/1 wood`);
+      this._drawButton(this._btnReforest, GameState.current_action === GameState.ACTION_REFOREST, !canReforest);
+    }
   }
 
   // ── Alert popup ─────────────────────────────────────────────────────────────
@@ -286,6 +302,12 @@ class UIScene extends Phaser.Scene {
       return;
     }
 
+    // Unlock buttons
+    if (!this.farmUnlocked && GameState.shelterBuilt) {
+      this.farmUnlocked = true;
+      this._setBtnVisible(this._btnFarm, true);
+    }
+
     // Alerts
     if (!this.overlayOpen) {
       if (GameState.land_health < 20 && !this.alertLandTriggered) {
@@ -296,6 +318,10 @@ class UIScene extends Phaser.Scene {
         this.scene.pause("GameScene");
       } else if (GameState.water < 20 && !this.alertWaterTriggered) {
         this.alertWaterTriggered = true;
+        if (!this.reforestUnlocked) {
+          this.reforestUnlocked = true;
+          this._setBtnVisible(this._btnReforest, true);
+        }
         this.alertLabel.setText(
           "Alert!\nWater level is critical (< 20%).\nTry planting trees.",
         );
