@@ -3,6 +3,7 @@ class GameScene extends Phaser.Scene {
 
   preload() {
     this.load.spritesheet('tiles', 'art/tiles.png?v4', { frameWidth: 32, frameHeight: 32 });
+    this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
   }
 
   create() {
@@ -56,6 +57,21 @@ class GameScene extends Phaser.Scene {
 
     this._generateWorld();
     this._setupInput();
+
+    // Audio: sfx-wind préchargé, les autres chargés après démarrage
+    this.musicUnlocked = false;
+    this.sndRain = this.sndMusic = this.sndThunder = null;
+    this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 1 });
+    this.sndWind.play();
+    this.load.audio('sfx-rain',    'sfx/sfx-rain.mp3');
+    this.load.audio('sfx-thunder', 'sfx/sfx-thunder.mp3');
+    this.load.audio('music-theme', 'sfx/ReSources Track1_1.mp3');
+    this.load.once('complete', () => {
+      this.sndRain    = this.sound.add('sfx-rain',    { loop: true,  volume: 0 });
+      this.sndMusic   = this.sound.add('music-theme', { loop: true,  volume: 0 });
+      this.sndThunder = this.sound.add('sfx-thunder', { loop: false, volume: 1 });
+    });
+    this.load.start();
 
     this.scene.launch('UIScene');
 
@@ -441,6 +457,11 @@ class GameScene extends Phaser.Scene {
   }
 
   _harvestGarden(c, g) {
+    // First harvest: switch from wind to music (only if not raining)
+    if (!this.musicUnlocked && this.rain.state === 'idle') {
+      this._fadeSound(this.sndWind, 0, 3000);
+      this._startMusic();
+    }
     const th = this.biomeLayer.getTileAt(c.x, c.y);
     if (th) th.alpha = 1;
     g.stage = 4;
@@ -493,6 +514,26 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  // ── Audio ────────────────────────────────────────────────────────────────────
+
+  _fadeSound(snd, toVol, duration, onComplete) {
+    this.tweens.killTweensOf(snd);
+    this.tweens.add({
+      targets: snd, volume: toVol, duration,
+      onComplete: () => {
+        if (toVol === 0) snd.stop();
+        if (onComplete) onComplete();
+      },
+    });
+  }
+
+  _startMusic() {
+    this.musicUnlocked = true;
+    this.sndMusic.setVolume(0);
+    if (!this.sndMusic.isPlaying) this.sndMusic.play();
+    this._fadeSound(this.sndMusic, 0.1, 3000);
+  }
+
   // ── Rain ─────────────────────────────────────────────────────────────────────
 
   _startRain() {
@@ -503,9 +544,17 @@ class GameScene extends Phaser.Scene {
     this.rain.started       = true;
     this.rain.lightningTimer = 0;
     this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
+
+    // Audio: fade out current theme, fade in rain
+    if (this.sndWind.isPlaying)  this._fadeSound(this.sndWind,  0, 3000);
+    if (this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
+    this.sndRain.setVolume(0);
+    if (!this.sndRain.isPlaying) this.sndRain.play();
+    this._fadeSound(this.sndRain, 1, 3000);
   }
 
   _triggerLightning() {
+    this.sndThunder.play();
     const count = Math.random() < 0.4 ? 3 : 2;
     let delay = 0;
     for (let i = 0; i < count; i++) {
@@ -558,6 +607,8 @@ class GameScene extends Phaser.Scene {
         const gain = Math.round(5 + ((r.duration - 30) / 30) * 5); // 5–10 pts
         GameState.changeWater(gain);
         r.nextTimer = 120 + Math.random() * 180; // 120–300 s
+        // Audio: fade out rain, start music
+        this._fadeSound(this.sndRain, 0, 3000, () => this._startMusic());
         return;
       }
     }

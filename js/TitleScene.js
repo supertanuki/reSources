@@ -1,6 +1,10 @@
 class TitleScene extends Phaser.Scene {
   constructor() { super({ key: 'TitleScene' }); }
 
+  preload() {
+    this.load.audio('sfx-button', 'sfx/sfx-button.mp3');
+  }
+
   create() {
     const W = GAME_WIDTH, H = GAME_HEIGHT;
     const cx = W / 2, cy = H / 2 - 100;
@@ -63,6 +67,7 @@ class TitleScene extends Phaser.Scene {
       btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
     });
     zone.on('pointerdown', () => {
+      this.sound.play('sfx-button');
       this.scale.startFullscreen();
       this.scene.start('GameScene');
     });

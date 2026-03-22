@@ -3,7 +3,12 @@ class UIScene extends Phaser.Scene {
     super({ key: "UIScene" });
   }
 
+  preload() {
+    this.load.audio('sfx-button', 'sfx/sfx-button.mp3');
+  }
+
   create() {
+    this.sfxButton = this.sound.add('sfx-button');
     this.alertLandTriggered = false;
     this.alertWaterTriggered = false;
     this.gameOver = false;
@@ -100,7 +105,7 @@ class UIScene extends Phaser.Scene {
       .zone(x, y, w, h)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
-    zone.on("pointerdown", cb);
+    zone.on("pointerdown", () => { this.sfxButton.play(); cb(); });
 
     return { bg, txt, zone, x, y, w, h, disabled: false, active: false };
   }
@@ -148,41 +153,40 @@ class UIScene extends Phaser.Scene {
     }
   }
 
-  // ── Alert popup ─────────────────────────────────────────────────────────────
+  // ── Alert banner (full-width, bottom of screen) ──────────────────────────────
 
   _buildAlertPopup() {
-    const W = 560,
-      H = 260;
-    const px = (GAME_WIDTH - W) / 2;
-    const py = (GAME_HEIGHT - H) - 20;
+    const W = GAME_WIDTH;
+    const H = 100;
+    const py = GAME_HEIGHT - H;
 
     this.alertPopup = this.add
-      .container(px, py)
+      .container(0, py)
       .setVisible(false)
       .setDepth(100);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x111111, 0.97);
-    bg.fillRoundedRect(0, 0, W, H, 8);
+    bg.fillRect(0, 0, W, H);
     bg.lineStyle(2, 0xffaa00, 1);
-    bg.strokeRoundedRect(0, 0, W, H, 8);
+    bg.lineBetween(0, 0, W, 0);
 
     this.alertLabel = this.add
-      .text(W / 2, H / 2 - 28, "", {
-        fontSize: "20px",
+      .text(W / 2, H / 2 - 12, "", {
+        fontSize: "18px",
         fill: "#ffcc44",
         fontFamily: "monospace",
-        align: "left",
-        wordWrap: { width: W - 48 },
+        align: "center",
+        wordWrap: { width: W - 200 },
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0.5);
 
     const okBg = this.add.graphics();
     okBg.fillStyle(0x444444, 1);
-    okBg.fillRoundedRect(W / 2 - 50, H - 52, 100, 34, 4);
+    okBg.fillRoundedRect(W - 120, H / 2 - 17, 100, 34, 4);
 
     const okTxt = this.add
-      .text(W / 2, H - 35, "OK", {
+      .text(W - 70, H / 2, "OK", {
         fontSize: "15px",
         fill: "#ffffff",
         fontFamily: "monospace",
@@ -190,10 +194,11 @@ class UIScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const okZone = this.add
-      .zone(W / 2 - 50, H - 52, 100, 34)
+      .zone(W - 120, H / 2 - 17, 100, 34)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
     okZone.on("pointerdown", () => {
+      this.sfxButton.play();
       this.alertPopup.setVisible(false);
       this.overlayOpen = false;
       this.scene.resume("GameScene");
@@ -259,6 +264,7 @@ class UIScene extends Phaser.Scene {
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
     replayZone.on("pointerdown", () => {
+      this.sfxButton.play();
       this.gameOver = false;
       this.overlayOpen = false;
       this.alertLandTriggered = false;
@@ -312,7 +318,7 @@ class UIScene extends Phaser.Scene {
     if (!this.overlayOpen) {
       if (GameState.land_health < 20 && !this.alertLandTriggered) {
         this.alertLandTriggered = true;
-        this.alertLabel.setText("Alert!\nLand health is critical (< 20%).");
+        this.alertLabel.setText("Alert! Land health is critical (< 20%).");
         this.alertPopup.setVisible(true);
         this.overlayOpen = true;
         this.scene.pause("GameScene");
@@ -323,7 +329,7 @@ class UIScene extends Phaser.Scene {
           this._setBtnVisible(this._btnReforest, true);
         }
         this.alertLabel.setText(
-          "Alert!\nWater level is critical (< 20%).\nTry planting trees.",
+          "Alert! Water level is critical (< 20%). Try planting trees.",
         );
         this.alertPopup.setVisible(true);
         this.overlayOpen = true;
