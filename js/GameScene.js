@@ -288,7 +288,6 @@ class GameScene extends Phaser.Scene {
   }
 
   _placeFarm(c, td) {
-    if (this.sndPlaceTile) this.sndPlaceTile.play();
     if (this.gardens.length >= this.persons.length) {
       if (!this.farmLimitAlertShown) {
         this.farmLimitAlertShown = true;
@@ -299,6 +298,7 @@ class GameScene extends Phaser.Scene {
     }
     this.farmLimitAlertShown = false;
     if (GameState.wood < 1) return;
+    if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
     GameState.changeWater(-2);
     td.biome = GameState.TILE_FARM;
