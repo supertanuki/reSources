@@ -61,15 +61,35 @@ class GameScene extends Phaser.Scene {
     // Audio: sfx-wind préchargé, les autres chargés après démarrage
     this.musicUnlocked = false;
     this.sndRain = this.sndMusic = this.sndThunder = null;
+    this.sndBuild = this.sndCuttingTree = this.sndPlaceTile = this.sndHarvest = null;
+    this._musicLoopTimer = null;
     this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 1 });
     this.sndWind.play();
-    this.load.audio('sfx-rain',    'sfx/sfx-rain.mp3');
-    this.load.audio('sfx-thunder', 'sfx/sfx-thunder.mp3');
-    this.load.audio('music-theme', 'sfx/ReSources Track1_1.mp3');
+    this.load.audio('sfx-rain',         'sfx/sfx-rain.mp3');
+    this.load.audio('sfx-thunder',      'sfx/sfx-thunder.mp3');
+    this.load.audio('sfx-build',        'sfx/sfx-build.mp3');
+    this.load.audio('sfx-cutting-tree', 'sfx/sfx-cutting-tree.mp3');
+    this.load.audio('sfx-place-tile',   'sfx/sfx-place-tile.mp3');
+    this.load.audio('sfx-harvest',      'sfx/sfx-harvest.mp3');
+    this.load.audio('music-theme',      'sfx/abydos_music-middle-eastern-moon.mp3');
     this.load.once('complete', () => {
-      this.sndRain    = this.sound.add('sfx-rain',    { loop: true,  volume: 0 });
-      this.sndMusic   = this.sound.add('music-theme', { loop: true,  volume: 0 });
-      this.sndThunder = this.sound.add('sfx-thunder', { loop: false, volume: 1 });
+      this.sndRain        = this.sound.add('sfx-rain',         { loop: true,  volume: 0 });
+      this.sndMusic       = this.sound.add('music-theme',      { loop: false, volume: 0 });
+      this.sndMusic.on('complete', () => {
+        if (this._musicLoopTimer) this._musicLoopTimer.remove();
+        this._musicLoopTimer = this.time.delayedCall(10000, () => {
+          this._musicLoopTimer = null;
+          if (this.sndMusic && !this.sndMusic.isPlaying) {
+            this.sndMusic.setVolume(0.1);
+            this.sndMusic.play();
+          }
+        });
+      });
+      this.sndThunder     = this.sound.add('sfx-thunder',      { loop: false, volume: 1 });
+      this.sndBuild       = this.sound.add('sfx-build',        { loop: false, volume: 1 });
+      this.sndCuttingTree = this.sound.add('sfx-cutting-tree', { loop: false, volume: 1 });
+      this.sndPlaceTile   = this.sound.add('sfx-place-tile',   { loop: false, volume: 1 });
+      this.sndHarvest     = this.sound.add('sfx-harvest',      { loop: false, volume: 1 });
     });
     this.load.start();
 
@@ -234,6 +254,7 @@ class GameScene extends Phaser.Scene {
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   _harvestTree(c, td) {
+    if (this.sndCuttingTree) this.sndCuttingTree.play();
     td.has_tree = false;
     td.biome = GameState.TILE_DESERT;
     this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_DESERT), c.x, c.y);
@@ -257,6 +278,7 @@ class GameScene extends Phaser.Scene {
 
   _reforest(c, td) {
     if (GameState.wood < 1) return;
+    if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
     td.biome = GameState.TILE_FOREST;
     td.has_tree = true;
@@ -266,6 +288,7 @@ class GameScene extends Phaser.Scene {
   }
 
   _placeFarm(c, td) {
+    if (this.sndPlaceTile) this.sndPlaceTile.play();
     if (this.gardens.length >= this.persons.length) {
       if (!this.farmLimitAlertShown) {
         this.farmLimitAlertShown = true;
@@ -286,6 +309,7 @@ class GameScene extends Phaser.Scene {
 
   _tryBuild(c, td) {
     if (GameState.wood < GameState.BUILDING_WOOD_COST) return;
+    if (this.sndBuild) this.sndBuild.play();
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
     td.biome = GameState.TILE_BUILDING;
@@ -457,9 +481,9 @@ class GameScene extends Phaser.Scene {
   }
 
   _harvestGarden(c, g) {
+    if (this.sndHarvest) this.sndHarvest.play();
     // First harvest: switch from wind to music (only if not raining)
     if (!this.musicUnlocked && this.rain.state === 'idle') {
-      this._fadeSound(this.sndWind, 0, 3000);
       this._startMusic();
     }
     const th = this.biomeLayer.getTileAt(c.x, c.y);
@@ -493,6 +517,7 @@ class GameScene extends Phaser.Scene {
   }
 
   _replantGarden(c, g) {
+    if (this.sndPlaceTile) this.sndPlaceTile.play();
     g.stage = 0;
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
@@ -515,6 +540,14 @@ class GameScene extends Phaser.Scene {
   }
 
   // ── Audio ────────────────────────────────────────────────────────────────────
+
+  fadeOutAllAudio(duration = 2000) {
+    if (this.sndWind  && this.sndWind.isPlaying)  this._fadeSound(this.sndWind,  0, duration);
+    if (this.sndRain  && this.sndRain.isPlaying)  this._fadeSound(this.sndRain,  0, duration);
+    if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, duration);
+    // Cancel any pending music loop
+    if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
+  }
 
   _fadeSound(snd, toVol, duration, onComplete) {
     this.tweens.killTweensOf(snd);
@@ -545,9 +578,9 @@ class GameScene extends Phaser.Scene {
     this.rain.lightningTimer = 0;
     this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
 
-    // Audio: fade out current theme, fade in rain
-    if (this.sndWind.isPlaying)  this._fadeSound(this.sndWind,  0, 3000);
-    if (this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
+    // Audio: fade out music only (wind stays), fade in rain
+    if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
+    if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
     this.sndRain.setVolume(0);
     if (!this.sndRain.isPlaying) this.sndRain.play();
     this._fadeSound(this.sndRain, 1, 3000);

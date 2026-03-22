@@ -4,11 +4,15 @@ class UIScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.audio('sfx-button', 'sfx/sfx-button.mp3');
+    this.load.audio('sfx-button',       'sfx/sfx-button.mp3');
+    this.load.audio('sfx-notification', 'sfx/sfx-notification.mp3');
+    this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
   }
 
   create() {
-    this.sfxButton = this.sound.add('sfx-button');
+    this.sfxButton       = this.sound.add('sfx-button');
+    this.sfxNotification = this.sound.add('sfx-notification');
+    this.sfxWarning      = this.sound.add('sfx-warning');
     this.alertLandTriggered = false;
     this.alertWaterTriggered = false;
     this.gameOver = false;
@@ -207,12 +211,14 @@ class UIScene extends Phaser.Scene {
     this.alertPopup.add([bg, this.alertLabel, okBg, okTxt, okZone]);
   }
 
-  showAlert(text) {
+  showAlert(text, warning = false) {
     if (this.overlayOpen) return;
     this.alertLabel.setText(text);
     this.alertPopup.setVisible(true);
     this.overlayOpen = true;
     this.scene.pause("GameScene");
+    if (warning) this.sfxWarning.play();
+    else         this.sfxNotification.play();
   }
 
   // ── Game Over popup ──────────────────────────────────────────────────────────
@@ -298,6 +304,18 @@ class UIScene extends Phaser.Scene {
     if (GameState.land_health === 0 || noWaterTiles) {
       this.gameOver = true;
       this.overlayOpen = true;
+      if (gameScene) {
+        // Fadeout via UIScene tweens (GameScene sera pausé, ses tweens s'arrêteraient)
+        const snds = [gameScene.sndWind, gameScene.sndRain, gameScene.sndMusic]
+          .filter(s => s && s.isPlaying);
+        for (const s of snds) {
+          this.tweens.add({ targets: s, volume: 0, duration: 2000, onComplete: () => s.stop() });
+        }
+        if (gameScene._musicLoopTimer) {
+          gameScene._musicLoopTimer.remove();
+          gameScene._musicLoopTimer = null;
+        }
+      }
       this.gameOverLabel.setText(
         GameState.land_health === 0
           ? "Game Over!\nThe land health has collapsed."
@@ -322,6 +340,7 @@ class UIScene extends Phaser.Scene {
         this.alertPopup.setVisible(true);
         this.overlayOpen = true;
         this.scene.pause("GameScene");
+        this.sfxWarning.play();
       } else if (GameState.water < 20 && !this.alertWaterTriggered) {
         this.alertWaterTriggered = true;
         if (!this.reforestUnlocked) {
@@ -334,6 +353,7 @@ class UIScene extends Phaser.Scene {
         this.alertPopup.setVisible(true);
         this.overlayOpen = true;
         this.scene.pause("GameScene");
+        this.sfxWarning.play();
       }
     }
 
