@@ -16,6 +16,7 @@ class GameScene extends Phaser.Scene {
     this.waterRegenTimer = 0;
     this.persons         = [];
     this.mouseHeld       = false;
+    this._dragIntent     = null;
     this.lastPreviewCell = null;
     this.woodAlertShown        = false;
     this.treesCut              = 0;
@@ -149,7 +150,7 @@ class GameScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointerup', () => { this.mouseHeld = false; });
+    this.input.on('pointerup', () => { this.mouseHeld = false; this._dragIntent = null; });
 
     this.input.on('pointermove', (p) => {
       this._updatePreview(p.worldX, p.worldY, p.y < UI_HEIGHT);
@@ -230,21 +231,28 @@ class GameScene extends Phaser.Scene {
     const act = GameState.current_action;
 
     if (td.biome === GameState.TILE_FOREST && td.has_tree && !td.building) {
+      this._dragIntent = 'harvest_tree';
       this._harvestTree(c, td);
     } else if (act === GameState.ACTION_BUILD && td.biome === GameState.TILE_DESERT && !td.building) {
       this._tryBuild(c, td);
     } else if (act === GameState.ACTION_REFOREST && td.biome === GameState.TILE_DESERT && !td.building) {
+      this._dragIntent = 'plant_tree';
       this._reforest(c, td);
     } else if (act === GameState.ACTION_FARM && td.biome === GameState.TILE_DESERT && !td.building) {
+      this._dragIntent = 'place_farm';
       this._placeFarm(c, td);
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
       if (g && g.stage === 2) {
+        this._dragIntent = 'harvest_garden';
         this._harvestGarden(c, g);
       } else if (act === GameState.ACTION_BUILD) {
         this._removeGarden(c, td, g);
       } else if (act === GameState.ACTION_FARM) {
-        if (g && (g.stage === 3 || g.stage === 4)) this._replantGarden(c, g);
+        if (g && (g.stage === 3 || g.stage === 4)) {
+          this._dragIntent = 'replant_garden';
+          this._replantGarden(c, g);
+        }
       }
     }
   }
@@ -252,8 +260,27 @@ class GameScene extends Phaser.Scene {
   _handleDrag(c) {
     if (!this._valid(c)) return;
     const td = GameState.tiles[c.y][c.x];
-    if (td.biome === GameState.TILE_FOREST && td.has_tree && !td.building) {
-      this._harvestTree(c, td);
+    const intent = this._dragIntent;
+
+    if (intent === 'harvest_tree') {
+      if (td.biome === GameState.TILE_FOREST && td.has_tree && !td.building)
+        this._harvestTree(c, td);
+    } else if (intent === 'plant_tree') {
+      if (td.biome === GameState.TILE_DESERT && !td.building && GameState.wood >= 1)
+        this._reforest(c, td);
+    } else if (intent === 'harvest_garden') {
+      if (td.biome === GameState.TILE_FARM) {
+        const g = this._getGarden(c.x, c.y);
+        if (g && g.stage === 2) this._harvestGarden(c, g);
+      }
+    } else if (intent === 'place_farm') {
+      if (td.biome === GameState.TILE_DESERT && !td.building)
+        this._placeFarm(c, td);
+    } else if (intent === 'replant_garden') {
+      if (td.biome === GameState.TILE_FARM) {
+        const g = this._getGarden(c.x, c.y);
+        if (g && (g.stage === 3 || g.stage === 4)) this._replantGarden(c, g);
+      }
     }
   }
 
