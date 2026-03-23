@@ -258,13 +258,17 @@ class GameScene extends Phaser.Scene {
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
-  _floatLabel(c, text, color) {
-    const wx = c.x * 32 + 16;
-    const wy = c.y * 32 + UI_HEIGHT + 8;
+  // Base: world coordinates
+  _floatLabel(wx, wy, text, color) {
     const t = this.add.text(wx, wy, text, {
       fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: color,
     }).setOrigin(0.5, 1).setDepth(6);
-    this.tweens.add({ targets: t, y: wy - 36, alpha: 0, duration: 900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
+    this.tweens.add({ targets: t, y: wy - 36, alpha: 0, duration: 2900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
+  }
+
+  // Helper: tile coordinates + horizontal pixel offset
+  _floatLabelAtTile(cx, cy, offsetPx, text, color) {
+    this._floatLabel(cx * 32 + 16 + offsetPx, cy * 32 + UI_HEIGHT + 8, text, color);
   }
 
   _harvestTree(c, td) {
@@ -276,8 +280,9 @@ class GameScene extends Phaser.Scene {
     GameState.addWood(1);
     GameState.changeLandHealth(-1);
     GameState.changeWaterHidden(-1);
-    this._floatLabel({ x: c.x - 0.4, y: c.y }, '-1', '#55cc55');
-    this._floatLabel({ x: c.x + 0.4, y: c.y }, '-1', '#4499ff');
+    this._floatLabelAtTile(c.x, c.y, -20, '-1', '#2d7a2d');
+    this._floatLabelAtTile(c.x, c.y,   0, '-1', '#4499ff');
+    this._floatLabelAtTile(c.x, c.y, +20, '+1', '#aa6633');
 
     this.treesCut++;
     if (!this.rain.started && GameState.waterHidden < 50) this._startRain();
@@ -339,7 +344,11 @@ class GameScene extends Phaser.Scene {
     if (firstBuilding) GameState.shelterBuilt = true;
     this.woodAlertShown = true;
     this._registerBuilding(c);
-    this._spawnPeople(c);
+    const spawned = this._spawnPeople(c);
+    const waterCost = 1 + spawned;
+    this._floatLabelAtTile(c.x, c.y, -20, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
+    this._floatLabelAtTile(c.x, c.y,   0, `-${waterCost}`,                   '#4499ff');
+    this._floatLabelAtTile(c.x, c.y, +20, `+${spawned}`,                     '#111111');
 
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
@@ -357,12 +366,15 @@ class GameScene extends Phaser.Scene {
 
   _spawnPeople(c) {
     const count = Math.floor(Math.random() * 3) + 2;
+    let spawned = 0;
     for (let i = 0; i < count; i++) {
       if (this.persons.length >= this.buildingCells.length * 4) break;
       const pos = this._randomDesertNear(c);
       this.persons.push(new Person(this, pos.x, pos.y));
       GameState.changeWaterHidden(-1);
+      spawned++;
     }
+    return spawned;
   }
 
   _randomDesertNear(center) {
