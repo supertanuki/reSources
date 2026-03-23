@@ -7,6 +7,7 @@ class UIScene extends Phaser.Scene {
     this.load.audio('sfx-button',       'sfx/sfx-button.mp3');
     this.load.audio('sfx-notification', 'sfx/sfx-notification.mp3');
     this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
+    this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
 
   create() {
@@ -14,6 +15,7 @@ class UIScene extends Phaser.Scene {
     this.sfxNotification = this.sound.add('sfx-notification');
     this.sfxWarning      = this.sound.add('sfx-warning');
     this.alertLandTriggered = false;
+    this.alertReforestTriggered = false;
     this.alertWaterTriggered = false;
     this.alertWaterCriticalTriggered = false;
     this.alertWaterCriticalLastTime = -Infinity;
@@ -48,45 +50,32 @@ class UIScene extends Phaser.Scene {
 
     // Title
     this.add
-      .text(14, H / 2, "reSources", {
-        fontSize: "15px",
-        fontStyle: "bold",
-        fill: "#cccccc",
-        fontFamily: "monospace",
-      })
+      .bitmapText(24, H / 2, "pixel", "reSources", 32).setTint(0xcccccc)
       .setOrigin(0, 0.5);
 
     // Resource bars: [label, stateKey, x, color]
     const barDefs = [
-      { label: t('hud_land'),      key: "land_health", x: 140, color: 0x55cc55 },
-      { label: t('hud_water'),     key: "water",       x: 340, color: 0x4499ff },
-      { label: t('hud_community'), key: "community",   x: 540, color: 0xffaa33 },
+      { label: t('hud_land'),      key: "land_health", x: 210, color: 0x55cc55 },
+      { label: t('hud_water'),     key: "water",       x: 420, color: 0x4499ff },
+      { label: t('hud_community'), key: "community",   x: 630, color: 0xffaa33 },
     ];
 
     this._barFills = [];
 
     for (const def of barDefs) {
-      this.add.text(def.x, 10, def.label, {
-        fontSize: "11px",
-        fill: "#aaaaaa",
-        fontFamily: "monospace",
-      });
+      this.add.bitmapText(def.x, 14, "pixel", def.label, 16).setTint(0xaaaaaa);
 
       // Track bg
       const trackBg = this.add.graphics();
       trackBg.fillStyle(0x2a2a2a, 1);
-      trackBg.fillRoundedRect(def.x, 26, 160, 14, 3);
+      trackBg.fillRoundedRect(def.x, 32, 160, 14, 3);
 
       // Fill (dynamic)
       const fill = this.add.graphics();
       this._barFills.push({ fill, def });
 
       // Value text
-      const valText = this.add.text(def.x + 164, 26, "100", {
-        fontSize: "11px",
-        fill: "#888888",
-        fontFamily: "monospace",
-      });
+      const valText = this.add.bitmapText(def.x + 164, 39, "pixel", "100", 16).setTint(0x888888).setOrigin(0, 0.5);
       this._barFills[this._barFills.length - 1].valText = valText;
     }
 
@@ -110,12 +99,8 @@ class UIScene extends Phaser.Scene {
     const h = 46;
     const bg = this.add.graphics().setVisible(textOnly ? false : initialVisible);
     const txt = this.add
-      .text(x + w / 2, y + h / 2, label, {
-        fontSize: textOnly ? "14px" : "13px",
-        fontStyle: "bold",
-        fill: textOnly ? "#aaaaaa" : "#ffffff",
-        fontFamily: "monospace",
-      })
+      .bitmapText(x + w / 2, y + h / 2, "pixel", label, 16)
+      .setTint(textOnly ? 0xaaaaaa : 0xffffff)
       .setOrigin(0.5)
       .setVisible(initialVisible);
 
@@ -142,11 +127,11 @@ class UIScene extends Phaser.Scene {
     btn.active = active;
     if (btn.textOnly) {
       if (disabled) {
-        btn.txt.setStyle({ fill: '#555555' });
+        btn.txt.setTint(0x555555);
       } else if (btn.hovered) {
-        btn.txt.setStyle({ fill: '#ffffff' });
+        btn.txt.setTint(0xffffff);
       } else {
-        btn.txt.setStyle({ fill: '#aaaaaa' });
+        btn.txt.setTint(0xaaaaaa);
       }
       btn.zone.setInteractive({ useHandCursor: true });
       return;
@@ -202,7 +187,7 @@ class UIScene extends Phaser.Scene {
 
   _buildAlertPopup() {
     const W = GAME_WIDTH;
-    const H = 100;
+    const H = 220;
     const py = GAME_HEIGHT - H;
 
     // Gradient overlay: transparent → black 50%, above the alert banner
@@ -222,28 +207,19 @@ class UIScene extends Phaser.Scene {
     bg.lineBetween(0, 0, W, 0);
 
     this.alertLabel = this.add
-      .text(W / 2, H / 2 - 12, "", {
-        fontSize: "18px",
-        fill: "#ffcc44",
-        fontFamily: "monospace",
-        align: "center",
-        wordWrap: { width: W - 200 },
-      })
+      .bitmapText(W / 2, H / 2 - 12, "pixel", "", 32).setTint(0xffcc44).setMaxWidth(W - 200)
       .setOrigin(0.5, 0.5);
+    this.alertLabel.align = 1;
 
     this._okBg = this.add.graphics();
     this._drawOkBtn(false);
 
     this._okTxt = this.add
-      .text(W - 70, H / 2, t('ok'), {
-        fontSize: "15px",
-        fill: "#ffffff",
-        fontFamily: "monospace",
-      })
+      .bitmapText(W - 100, H / 2, "pixel", t('ok'), 32)
       .setOrigin(0.5);
 
     const okZone = this.add
-      .zone(W - 120, H / 2 - 17, 100, 34)
+      .zone(W - 180, H / 2 - 25, 160, 50)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
     okZone.on("pointerover",  () => this._drawOkBtn(true));
@@ -273,15 +249,11 @@ class UIScene extends Phaser.Scene {
     this._journalBg.lineStyle(1, 0x333333, 1);
     this._journalBg.lineBetween(0, sepY, W, sepY);
 
-    this._journalTitle = this.add.text(W / 2, UI_HEIGHT + headerH / 2, t('journal_title'), {
-      fontSize: '20px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffcc44',
-    }).setOrigin(0.5).setDepth(201).setVisible(false);
+    this._journalTitle = this.add.bitmapText(W / 2, UI_HEIGHT + headerH / 2, 'pixel', t('journal_title'), 32).setTint(0xffcc44).setOrigin(0.5).setDepth(201).setVisible(false);
 
     // Close button
     this._journalCloseBg = this.add.graphics().setDepth(201).setVisible(false);
-    this._journalCloseTxt = this.add.text(W - 50, UI_HEIGHT + headerH / 2, t('journal_close'), {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5).setDepth(202).setVisible(false);
+    this._journalCloseTxt = this.add.bitmapText(W - 50, UI_HEIGHT + headerH / 2, 'pixel', t('journal_close'), 16).setOrigin(0.5).setDepth(202).setVisible(false);
     this._drawJournalCloseBtn(false);
 
     const closeZone = this.add.zone(W - 80, UI_HEIGHT + 10, 60, 40)
@@ -335,14 +307,12 @@ class UIScene extends Phaser.Scene {
   _refreshJournalEntries() {
     this._clearJournalEntries();
     const now = this.time.now;
-    const lineH   = 20; // height per text line (px)
-    const entryGap = 8; // extra spacing between entries
+    const lineH   = 40; // height per text line (px) — 32px font needs ~40px
+    const entryGap = 16; // extra spacing between entries
     let currentY = UI_HEIGHT + 68;
 
     if (this.alertHistory.length === 0) {
-      const emptyTxt = this.add.text(GAME_WIDTH / 2, currentY + 20, t('journal_empty'), {
-        fontSize: '15px', fontFamily: 'monospace', fill: '#555555',
-      }).setOrigin(0.5, 0).setDepth(202);
+      const emptyTxt = this.add.bitmapText(GAME_WIDTH / 2, currentY + 20, 'pixel', t('journal_empty'), 32).setTint(0x555555).setOrigin(0.5, 0).setDepth(202);
       this._journalEntries.push(emptyTxt);
       return;
     }
@@ -353,9 +323,8 @@ class UIScene extends Phaser.Scene {
       const elapsed = Math.floor((now - e.time) / 1000);
       const timeStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m`;
       const text = `[${timeStr}]  ${e.text}`;
-      const entry = this.add.text(40, currentY, text, {
-        fontSize: '15px', fontFamily: 'monospace', fill: i === 0 ? '#ffffff' : '#888888',
-      }).setDepth(202);
+      const entry = this.add.bitmapText(40, currentY, 'pixel', text, 32)
+        .setTint(i === 0 ? 0xffffff : 0x888888).setDepth(202);
       this._journalEntries.push(entry);
       const linesCount = e.text.split('\n').length;
       currentY += linesCount * lineH + entryGap;
@@ -376,21 +345,15 @@ class UIScene extends Phaser.Scene {
     bg.lineStyle(1, 0x444444, 1);
     bg.strokeRoundedRect(0, 0, PW, PH, 8);
 
-    const title = this.add.text(PW / 2, 28, t('settings_title'), {
-      fontSize: '18px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#cccccc',
-    }).setOrigin(0.5);
+    const title = this.add.bitmapText(PW / 2, 28, 'pixel', t('settings_title'), 32).setTint(0xcccccc).setOrigin(0.5);
 
     this._settingsBtnMusic = this._makeSettingsToggle(PW, 75,  t('settings_music'), () => this._toggleMusic());
     this._settingsBtnSfx   = this._makeSettingsToggle(PW, 130, t('settings_sfx'),   () => this._toggleSfx());
 
     // Language toggle row
-    const langLbl = this.add.text(40, 185, t('settings_lang'), {
-      fontSize: '14px', fontFamily: 'monospace', fill: '#aaaaaa',
-    }).setOrigin(0, 0.5);
+    const langLbl = this.add.bitmapText(40, 185, 'pixel', t('settings_lang'), 32).setTint(0xaaaaaa).setOrigin(0, 0.5);
     this._settingsLangBg = this.add.graphics();
-    this._settingsLangTxt = this.add.text(PW - 100, 185, t('settings_lang_toggle'), {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5);
+    this._settingsLangTxt = this.add.bitmapText(PW - 100, 185, 'pixel', t('settings_lang_toggle'), 16).setOrigin(0.5);
     this._drawSettingsLangBtn(false);
     const langZone = this.add.zone(PW - 140, 167, 80, 36)
       .setOrigin(0).setInteractive({ useHandCursor: true });
@@ -405,14 +368,12 @@ class UIScene extends Phaser.Scene {
     // Close button (grey with hover)
     this._settingsCloseBg = this.add.graphics();
     this._drawSettingsCloseBtn(false);
-    const closeTxt = this.add.text(PW / 2, PH - 37, t('settings_close'), {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5);
+    const closeTxt = this.add.bitmapText(PW / 2, PH - 37, 'pixel', t('settings_close'), 16).setOrigin(0.5);
     const closeZone = this.add.zone(PW / 2 - 60, PH - 55, 120, 36)
       .setOrigin(0).setInteractive({ useHandCursor: true });
     closeZone.on('pointerover',  () => this._drawSettingsCloseBtn(true));
     closeZone.on('pointerout',   () => this._drawSettingsCloseBtn(false));
-    closeZone.on('pointerdown',  () => this._closeSettings());
+    closeZone.on('pointerdown',  () => { this.sfxButton.play(); this._closeSettings(); });
 
     this._settingsPanel.add([bg, title,
       ...this._settingsBtnMusic.objects,
@@ -439,14 +400,10 @@ class UIScene extends Phaser.Scene {
   }
 
   _makeSettingsToggle(PW, y, label, onToggle) {
-    const lbl = this.add.text(40, y, label, {
-      fontSize: '14px', fontFamily: 'monospace', fill: '#aaaaaa',
-    }).setOrigin(0, 0.5);
+    const lbl = this.add.bitmapText(40, y, 'pixel', label, 32).setTint(0xaaaaaa).setOrigin(0, 0.5);
 
     const btnBg = this.add.graphics();
-    const btnTxt = this.add.text(PW - 100, y, '', {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5);
+    const btnTxt = this.add.bitmapText(PW - 100, y, 'pixel', '', 16).setOrigin(0.5);
     const zone = this.add.zone(PW - 140, y - 18, 80, 36)
       .setOrigin(0).setInteractive({ useHandCursor: true });
     zone.on('pointerdown', onToggle);
@@ -494,7 +451,7 @@ class UIScene extends Phaser.Scene {
   _applyAudioSettings() {
     const gs = this.scene.get('GameScene');
     if (gs) {
-      for (const s of [gs.sndWind, gs.sndRain, gs.sndMusic]) {
+      for (const s of [gs.sndWind, gs.sndRain, gs.sndMusic, gs.sndMusicDesert]) {
         if (s) s.setMute(!this.musicEnabled);
       }
       for (const s of [gs.sndBuild, gs.sndCuttingTree, gs.sndPlaceTile, gs.sndHarvest, gs.sndThunder]) {
@@ -594,15 +551,19 @@ class UIScene extends Phaser.Scene {
   }
 
   _drawOkBtn(hovered) {
-    const W = GAME_WIDTH, H = 100;
+    const W = GAME_WIDTH, H = 220;
     this._okBg.clear();
     this._okBg.fillStyle(hovered ? 0x666666 : 0x444444, 1);
-    this._okBg.fillRoundedRect(W - 120, H / 2 - 17, 100, 34, 4);
+    this._okBg.fillRoundedRect(W - 180, H / 2 - 25, 160, 50, 6);
   }
 
   showAlert(text, warning = false) {
     if (this.overlayOpen) return;
-    this.alertHistory.unshift({ text, time: this.time.now });
+    if (this.alertHistory.length > 0 && this.alertHistory[0].text === text) {
+      this.alertHistory[0].time = this.time.now;
+    } else {
+      this.alertHistory.unshift({ text, time: this.time.now });
+    }
     this.alertLabel.setText(text);
     this.alertPopup.setVisible(true);
     this.overlayOpen = true;
@@ -636,14 +597,9 @@ class UIScene extends Phaser.Scene {
     bg.strokeRoundedRect(0, 0, W, H, 8);
 
     this.gameOverLabel = this.add
-      .text(W / 2, 70, "", {
-        fontSize: "19px",
-        fill: "#ff5555",
-        fontFamily: "monospace",
-        align: "center",
-        wordWrap: { width: W - 40 },
-      })
+      .bitmapText(W / 2, 70, "pixel", "", 32).setTint(0xff5555).setMaxWidth(W - 40)
       .setOrigin(0.5);
+    this.gameOverLabel.align = 1;
 
     const replayBg = this.add.graphics();
     replayBg.fillStyle(0x2d6e2d, 1);
@@ -652,12 +608,7 @@ class UIScene extends Phaser.Scene {
     replayBg.strokeRoundedRect(W / 2 - 80, H - 60, 160, 38, 4);
 
     const replayTxt = this.add
-      .text(W / 2, H - 41, t('replay'), {
-        fontSize: "15px",
-        fontStyle: "bold",
-        fill: "#ffffff",
-        fontFamily: "monospace",
-      })
+      .bitmapText(W / 2, H - 41, "pixel", t('replay'), 16)
       .setOrigin(0.5);
 
     const replayZone = this.add
@@ -669,6 +620,7 @@ class UIScene extends Phaser.Scene {
       this.gameOver = false;
       this.overlayOpen = false;
       this.alertLandTriggered = false;
+      this.alertReforestTriggered = false;
       this.alertWaterTriggered = false;
       this.scene.stop("UIScene");
       this.scene.stop("GameScene");
@@ -701,15 +653,13 @@ class UIScene extends Phaser.Scene {
       this.overlayOpen = true;
       if (gameScene) {
         // Fadeout via UIScene tweens (GameScene sera pausé, ses tweens s'arrêteraient)
-        const snds = [gameScene.sndWind, gameScene.sndRain, gameScene.sndMusic]
+        const snds = [gameScene.sndWind, gameScene.sndRain, gameScene.sndMusic, gameScene.sndMusicDesert]
           .filter(s => s && s.isPlaying);
         for (const s of snds) {
           this.tweens.add({ targets: s, volume: 0, duration: 2000, onComplete: () => s.stop() });
         }
-        if (gameScene._musicLoopTimer) {
-          gameScene._musicLoopTimer.remove();
-          gameScene._musicLoopTimer = null;
-        }
+        if (gameScene._musicLoopTimer)  { gameScene._musicLoopTimer.remove();  gameScene._musicLoopTimer  = null; }
+        if (gameScene._desertLoopTimer) { gameScene._desertLoopTimer.remove(); gameScene._desertLoopTimer = null; }
       }
       this.gameOverLabel.setText(
         GameState.land_health === 0
@@ -734,13 +684,16 @@ class UIScene extends Phaser.Scene {
       if (GameState.land_health < 20 && !this.alertLandTriggered) {
         this.alertLandTriggered = true;
         this.showAlert(t('alert_land_critical'), true);
-      } else if (GameState.water < 20 && !this.alertWaterTriggered) {
-        this.alertWaterTriggered = true;
+      } else if (GameState.water < 50 && !this.alertReforestTriggered) {
+        this.alertReforestTriggered = true;
         if (!this.reforestUnlocked) {
           this.reforestUnlocked = true;
           GameState.uiReforestUnlocked = true;
           this._setBtnVisible(this._btnReforest, true);
         }
+        this.showAlert(t('alert_water_reforest'), true);
+      } else if (GameState.water < 20 && !this.alertWaterTriggered) {
+        this.alertWaterTriggered = true;
         this.showAlert(t('alert_water_low'), true);
       } else if (GameState.water < 10 && !this.alertWaterCriticalTriggered &&
                  this.time.now - this.alertWaterCriticalLastTime > 300000) {
@@ -751,6 +704,7 @@ class UIScene extends Phaser.Scene {
     }
 
     if (GameState.land_health >= 20) this.alertLandTriggered = false;
+    if (GameState.water >= 50) this.alertReforestTriggered = false;
     if (GameState.water >= 20) this.alertWaterTriggered = false;
     if (GameState.water >= 10) this.alertWaterCriticalTriggered = false;
   }
@@ -788,14 +742,11 @@ class UIScene extends Phaser.Scene {
                 ),
               )
             : item.def.color;
-      item.fill.fillStyle(color, 1);
-      item.fill.fillRoundedRect(
-        item.def.x,
-        26,
-        Math.max(0, (160 * value) / 100),
-        14,
-        3,
-      );
+      const fillW = Math.max(0, (160 * value) / 100);
+      if (fillW > 0) {
+        item.fill.fillStyle(color, 1);
+        item.fill.fillRoundedRect(item.def.x, 32, fillW, 14, 3);
+      }
       item.valText.setText(String(Math.round(value)));
     }
   }

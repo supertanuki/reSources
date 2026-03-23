@@ -3,6 +3,7 @@ class TitleScene extends Phaser.Scene {
 
   preload() {
     this.load.audio('sfx-button', 'sfx/sfx-button.mp3');
+    this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
 
   create() {
@@ -18,23 +19,17 @@ class TitleScene extends Phaser.Scene {
     for (let y = 0; y < H; y += 32) bg.lineBetween(0, y, W, y);
 
     // Title
-    this.add.text(cx, cy - 80, 'reSources', {
-      fontSize: '72px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#55cc55',
-    }).setOrigin(0.5);
+    this.add.bitmapText(cx, cy - 120, 'pixel', 'reSources', 64).setTint(0x55cc55).setOrigin(0.5);
 
     // Tagline
-    this.add.text(cx, cy + 10, t('tagline'), {
-      fontSize: '22px', fontFamily: 'monospace', fill: '#557755',
-    }).setOrigin(0.5);
+    this.add.bitmapText(cx, cy - 50, 'pixel', t('tagline'), 32).setTint(0x557755).setOrigin(0.5);
 
     // Story
-    this.add.text(cx, cy + 120, t('story'), {
-      fontSize: '20px', fontFamily: 'monospace', fill: '#ffffff', wordWrap: { width: 550 },
-    }).setOrigin(0.5);
+    this.add.bitmapText(cx, cy + 80, 'pixel', t('story'), 32).setMaxWidth(800).setOrigin(0.5);
 
     // ── Play button ──────────────────────────────────────────────────────────
-    const btnW = 340, btnH = 52;
-    const btnX = cx - btnW / 2, btnY = cy + 265;
+    const btnW = 500, btnH = 52;
+    const btnX = cx - btnW / 2, btnY = cy + 230;
 
     const btnBg = this.add.graphics();
     const drawPlay = (hover) => {
@@ -46,9 +41,7 @@ class TitleScene extends Phaser.Scene {
     };
     drawPlay(false);
 
-    this.add.text(cx, btnY + btnH / 2, t('play_btn'), {
-      fontSize: '22px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5);
+    this.add.bitmapText(cx, btnY + btnH / 2, 'pixel', t('play_btn'), 32).setOrigin(0.5);
 
     const playZone = this.add.zone(btnX, btnY, btnW, btnH)
       .setOrigin(0).setInteractive({ useHandCursor: true });
@@ -66,11 +59,9 @@ class TitleScene extends Phaser.Scene {
     });
 
     // ── Language link (plain text, bottom of screen) ─────────────────────────
-    const langTxt = this.add.text(cx, H - 36, t('lang_btn'), {
-      fontSize: '14px', fontFamily: 'monospace', fill: '#555555',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    langTxt.on('pointerover',  () => langTxt.setStyle({ fill: '#aaaaaa' }));
-    langTxt.on('pointerout',   () => langTxt.setStyle({ fill: '#555555' }));
+    const langTxt = this.add.bitmapText(cx, H - 100, 'pixel', t('lang_btn'), 32).setTint(0x555555).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    langTxt.on('pointerover',  () => langTxt.setTint(0xaaaaaa));
+    langTxt.on('pointerout',   () => langTxt.setTint(0x555555));
     langTxt.on('pointerdown',  () => {
       window._gameLang = window._gameLang === 'fr' ? 'en' : 'fr';
       this.scene.restart();

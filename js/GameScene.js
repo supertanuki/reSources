@@ -4,6 +4,7 @@ class GameScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet('tiles', 'art/tiles.png?v4', { frameWidth: 32, frameHeight: 32 });
     this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
+    this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
 
   create() {
@@ -62,9 +63,11 @@ class GameScene extends Phaser.Scene {
 
     // Audio: sfx-wind préchargé, les autres chargés après démarrage
     this.musicUnlocked = false;
-    this.sndRain = this.sndMusic = this.sndThunder = null;
+    this.sndRain = this.sndMusic = this.sndMusicDesert = this.sndThunder = null;
     this.sndBuild = this.sndCuttingTree = this.sndPlaceTile = this.sndHarvest = null;
     this._musicLoopTimer = null;
+    this._desertLoopTimer = null;
+    this._waterMusicState = null; // 'normal' | 'desert'
     this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 2 });
     this.sndWind.play();
     this.load.audio('sfx-rain',         'sfx/sfx-rain.mp3');
@@ -74,6 +77,7 @@ class GameScene extends Phaser.Scene {
     this.load.audio('sfx-place-tile',   'sfx/sfx-place-tile.mp3');
     this.load.audio('sfx-harvest',      'sfx/sfx-harvest.mp3');
     this.load.audio('music-theme',      'sfx/abydos_music-middle-eastern-moon.mp3');
+    this.load.audio('music-desert',     'sfx/abydos_music-middle-eastern-mystic-desert-1-minute-edit.mp3');
     this.load.once('complete', () => {
       this.sndRain        = this.sound.add('sfx-rain',         { loop: true,  volume: 0 });
       this.sndMusic       = this.sound.add('music-theme',      { loop: false, volume: 0 });
@@ -81,9 +85,20 @@ class GameScene extends Phaser.Scene {
         if (this._musicLoopTimer) this._musicLoopTimer.remove();
         this._musicLoopTimer = this.time.delayedCall(30000, () => {
           this._musicLoopTimer = null;
-          if (this.sndMusic && !this.sndMusic.isPlaying) {
+          if (this.sndMusic && !this.sndMusic.isPlaying && GameState.water >= 20) {
             this.sndMusic.setVolume(0.1);
             this.sndMusic.play();
+          }
+        });
+      });
+      this.sndMusicDesert = this.sound.add('music-desert',     { loop: false, volume: 0 });
+      this.sndMusicDesert.on('complete', () => {
+        if (this._desertLoopTimer) this._desertLoopTimer.remove();
+        this._desertLoopTimer = this.time.delayedCall(30000, () => {
+          this._desertLoopTimer = null;
+          if (this.sndMusicDesert && !this.sndMusicDesert.isPlaying && GameState.water < 20) {
+            this.sndMusicDesert.setVolume(0.2);
+            this.sndMusicDesert.play();
           }
         });
       });
@@ -227,6 +242,7 @@ class GameScene extends Phaser.Scene {
 
   _handleClick(c) {
     if (!this._valid(c)) return;
+    this._dragIntent = null;
     const td  = GameState.tiles[c.y][c.x];
     const act = GameState.current_action;
 
@@ -296,9 +312,7 @@ class GameScene extends Phaser.Scene {
     bg.fillStyle(colorInt, 1);
     bg.fillCircle(0, 0, R);
 
-    const t = this.add.text(0, 0, text, {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
-    }).setOrigin(0.5);
+    const t = this.add.bitmapText(0, 0, 'pixel', text, 16).setOrigin(0.5);
 
     container.add([bg, t]);
     this.tweens.add({
@@ -627,11 +641,13 @@ class GameScene extends Phaser.Scene {
   // ── Audio ────────────────────────────────────────────────────────────────────
 
   fadeOutAllAudio(duration = 2000) {
-    if (this.sndWind  && this.sndWind.isPlaying)  this._fadeSound(this.sndWind,  0, duration);
-    if (this.sndRain  && this.sndRain.isPlaying)  this._fadeSound(this.sndRain,  0, duration);
-    if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, duration);
-    // Cancel any pending music loop
-    if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
+    if (this.sndWind        && this.sndWind.isPlaying)        this._fadeSound(this.sndWind,        0, duration);
+    if (this.sndRain        && this.sndRain.isPlaying)        this._fadeSound(this.sndRain,        0, duration);
+    if (this.sndMusic       && this.sndMusic.isPlaying)       this._fadeSound(this.sndMusic,       0, duration);
+    if (this.sndMusicDesert && this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, duration);
+    if (this._musicLoopTimer)  { this._musicLoopTimer.remove();  this._musicLoopTimer  = null; }
+    if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
+    this._waterMusicState = null;
   }
 
   _fadeSound(snd, toVol, duration, onComplete) {
@@ -647,8 +663,33 @@ class GameScene extends Phaser.Scene {
 
   _startMusic() {
     this.musicUnlocked = true;
-    this.sndMusic.setVolume(0.1);
-    if (!this.sndMusic.isPlaying) this.sndMusic.play();
+    this._updateMusicTrack();
+  }
+
+  _updateMusicTrack() {
+    if (!this.musicUnlocked || !this.sndMusic || !this.sndMusicDesert) return;
+    const isRaining = this.rain && this.rain.state !== 'idle';
+    if (isRaining) return;
+
+    const wantDesert = GameState.water < 20;
+
+    if (wantDesert && this._waterMusicState !== 'desert') {
+      this._waterMusicState = 'desert';
+      if (this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 2000);
+      if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
+      if (!this.sndMusicDesert.isPlaying) {
+        this.sndMusicDesert.setVolume(0.1);
+        this.sndMusicDesert.play();
+      }
+    } else if (!wantDesert && this._waterMusicState !== 'normal') {
+      this._waterMusicState = 'normal';
+      if (this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, 2000);
+      if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
+      if (!this.sndMusic.isPlaying) {
+        this.sndMusic.setVolume(0.1);
+        this.sndMusic.play();
+      }
+    }
   }
 
   // ── Rain ─────────────────────────────────────────────────────────────────────
@@ -824,6 +865,7 @@ class GameScene extends Phaser.Scene {
         }
         // Visible indicator = exact reflection of current tile count
         GameState.water = Math.round((this.waterCells.length / this.initialWaterCount) * 100);
+        this._updateMusicTrack();
       }
     }
 
