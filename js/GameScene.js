@@ -261,10 +261,23 @@ class GameScene extends Phaser.Scene {
 
   // Base: world coordinates
   _floatLabel(wx, wy, text, color) {
-    const t = this.add.text(wx, wy, text, {
-      fontSize: '17px', fontStyle: 'bold', fontFamily: 'monospace', fill: color,
-    }).setOrigin(0.5, 1).setDepth(6);
-    this.tweens.add({ targets: t, y: wy - 36, alpha: 0, duration: 2900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
+    const R = 17;
+    const colorInt = parseInt(color.replace('#', ''), 16);
+    const container = this.add.container(wx, wy).setDepth(6);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(colorInt, 1);
+    bg.fillCircle(0, 0, R);
+
+    const t = this.add.text(0, 0, text, {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
+    }).setOrigin(0.5);
+
+    container.add([bg, t]);
+    this.tweens.add({
+      targets: container, y: wy - 44, alpha: 0, duration: 1900,
+      ease: 'Cubic.easeOut', onComplete: () => container.destroy(),
+    });
   }
 
   // Helper: tile coordinates + horizontal pixel offset
