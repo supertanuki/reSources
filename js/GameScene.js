@@ -201,11 +201,12 @@ class GameScene extends Phaser.Scene {
       preview = 11; // gid 11 = garden stage 1
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
-      if (act === GameState.ACTION_BUILD) {
+      if (g && g.stage === 2) {
+        preview = 14; // toujours afficher la tile récoltée, peu importe le mode
+      } else if (act === GameState.ACTION_BUILD) {
         preview = GameState.toPhaserId(GameState.TILE_DESERT);
       } else if (act === GameState.ACTION_FARM) {
-        if (g && g.stage === 2)                        preview = 14;
-        else if (g && (g.stage === 3 || g.stage === 4)) preview = 11;
+        if (g && (g.stage === 3 || g.stage === 4)) preview = 11;
       }
     }
 
@@ -306,6 +307,8 @@ class GameScene extends Phaser.Scene {
     this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
     this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.changeLandHealth(1);
+    this._floatLabelAtTile(c.x, c.y, -12, '-1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, +12, '+1', '#2d7a2d');
   }
 
   _placeFarm(c, td) {
@@ -326,6 +329,8 @@ class GameScene extends Phaser.Scene {
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.gardenPlaced = true;
+    this._floatLabelAtTile(c.x, c.y, -12, '-1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, +12, '-2', '#4499ff');
   }
 
   _tryBuild(c, td) {
@@ -523,10 +528,14 @@ class GameScene extends Phaser.Scene {
     this.lastPreviewCell = null;
     GameState.changeCommunity(1);
     GameState.wood += 1;
-    if (this.persons.length < this.buildingCells.length * 4) {
+    const hadCapacity = this.persons.length < this.buildingCells.length * 4;
+    if (hadCapacity) {
       const spawnPos = this._randomDesertNear(c);
       this.persons.push(new Person(this, spawnPos.x, spawnPos.y));
     }
+    this._floatLabelAtTile(c.x, c.y, -20, '+1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y,   0, '+1', '#ffaa33');
+    if (hadCapacity) this._floatLabelAtTile(c.x, c.y, +20, '+1', '#111111');
     if (!this.gardenHarvestAlertShown) {
       this.gardenHarvestAlertShown = true;
       const ui = this.scene.get('UIScene');
@@ -550,6 +559,7 @@ class GameScene extends Phaser.Scene {
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
     GameState.changeWaterHidden(-2);
+    this._floatLabelAtTile(c.x, c.y, 0, '-2', '#4499ff');
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
@@ -561,7 +571,10 @@ class GameScene extends Phaser.Scene {
         t.timer -= 30;
         t.stage++;
         this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
-        if (t.stage === 2) GameState.changeWaterHidden(1);
+        if (t.stage === 2) {
+          GameState.changeWaterHidden(1);
+          this._floatLabelAtTile(t.x, t.y, 0, '+1', '#4499ff');
+        }
       }
       return t.stage < 2; // remove once fully grown (stage 2 stays as gid 8)
     });
@@ -604,6 +617,10 @@ class GameScene extends Phaser.Scene {
     this.rain.started       = true;
     this.rain.lightningTimer = 0;
     this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
+    this.rain.totalGain     = Math.round(5 + ((this.rain.duration - 30) / 30) * 5); // 5–10 pts
+    this.rain.gainGiven     = 0;
+    this.rain.gainTimer     = 0;
+    this.rain.gainInterval  = this.rain.duration / this.rain.totalGain;
 
     // Audio: fade out music only (wind stays), fade in rain
     if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
@@ -654,6 +671,13 @@ class GameScene extends Phaser.Scene {
         r.lightningDelay  = 5 + Math.random() * 8;
         this._triggerLightning();
       }
+      // Distribute rain water points progressively
+      r.gainTimer += dt;
+      while (r.gainTimer >= r.gainInterval && r.gainGiven < r.totalGain) {
+        r.gainTimer -= r.gainInterval;
+        GameState.changeWaterHidden(1);
+        r.gainGiven++;
+      }
       if (r.phaseTimer >= r.duration) { r.state = 'fadeout'; r.phaseTimer = 0; }
 
     } else if (r.state === 'fadeout') {
@@ -664,8 +688,9 @@ class GameScene extends Phaser.Scene {
         r.drops      = [];
         this.rainGraphics.clear();
         this.rainOverlay.setAlpha(0);
-        const gain = Math.round(5 + ((r.duration - 30) / 30) * 5); // 5–10 pts
-        GameState.changeWaterHidden(gain);
+        // Give any remaining points not yet distributed
+        const remaining = r.totalGain - r.gainGiven;
+        if (remaining > 0) GameState.changeWaterHidden(remaining);
         r.nextTimer = 120 + Math.random() * 180; // 120–300 s
         // Audio: fade out rain, start music
         this._fadeSound(this.sndRain, 0, 3000, () => this._startMusic());
@@ -758,13 +783,14 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Water crisis: game over only after 10s with no water tiles
-    if (this.waterCells.length === 0) {
+    // Water crisis: game over only after 10s with no water tiles, never during rain
+    const isRaining = this.rain.state !== 'idle';
+    if (this.waterCells.length === 0 && !isRaining) {
       this.waterCrisisTimer += dt;
       if (this.waterCrisisTimer >= 10) this.waterCrisisTriggered = true;
     } else {
       this.waterCrisisTimer = 0;
-      this.waterCrisisTriggered = false;
+      if (isRaining) this.waterCrisisTriggered = false;
     }
 
     this._updateRain(dt);

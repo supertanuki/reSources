@@ -15,11 +15,17 @@ class UIScene extends Phaser.Scene {
     this.sfxWarning      = this.sound.add('sfx-warning');
     this.alertLandTriggered = false;
     this.alertWaterTriggered = false;
+    this.alertWaterCriticalTriggered = false;
     this.gameOver = false;
     this.overlayOpen = false;
+    this.alertHistory = [];
+    this.journalOpen = false;
+    this._journalEntries = [];
+    this._journalTimer = null;
 
     this._buildHUD();
     this._buildAlertPopup();
+    this._buildJournalOverlay();
     this._buildGameOverPopup();
   }
 
@@ -84,6 +90,7 @@ class UIScene extends Phaser.Scene {
     this._btnBuild    = this._makeButton(910,  12, 150, 'BUILD\n0/5 wood',     () => this._setAction(GameState.ACTION_BUILD));
     this._btnFarm     = this._makeButton(1075, 12, 120, 'FARM\n0/1 wood',       () => this._setAction(GameState.ACTION_FARM));
     this._btnReforest = this._makeButton(1210, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
+    this._btnJournal  = this._makeButton(1800, 12, 108, 'JOURNAL',              () => this._openJournal());
 
     this.farmUnlocked     = false;
     this.reforestUnlocked = false;
@@ -232,6 +239,106 @@ class UIScene extends Phaser.Scene {
     this.alertPopup.add([bg, this.alertLabel, this._okBg, this._okTxt, okZone]);
   }
 
+  // ── Journal ──────────────────────────────────────────────────────────────────
+
+  _buildJournalOverlay() {
+    const W = GAME_WIDTH, headerH = 60, sepY = UI_HEIGHT + headerH;
+
+    this._journalBg = this.add.graphics().setDepth(200).setVisible(false);
+    this._journalBg.fillStyle(0x000000, 0.88);
+    this._journalBg.fillRect(0, UI_HEIGHT, W, GAME_HEIGHT - UI_HEIGHT);
+    this._journalBg.lineStyle(1, 0x333333, 1);
+    this._journalBg.lineBetween(0, sepY, W, sepY);
+
+    this._journalTitle = this.add.text(W / 2, UI_HEIGHT + headerH / 2, 'JOURNAL', {
+      fontSize: '20px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffcc44',
+    }).setOrigin(0.5).setDepth(201).setVisible(false);
+
+    // Close button
+    this._journalCloseBg = this.add.graphics().setDepth(201).setVisible(false);
+    this._journalCloseTxt = this.add.text(W - 50, UI_HEIGHT + headerH / 2, 'CLOSE', {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
+    }).setOrigin(0.5).setDepth(202).setVisible(false);
+    this._drawJournalCloseBtn(false);
+
+    const closeZone = this.add.zone(W - 80, UI_HEIGHT + 10, 60, 40)
+      .setOrigin(0).setDepth(202).setInteractive({ useHandCursor: true }).setVisible(false);
+    this._journalCloseZone = closeZone;
+    closeZone.on('pointerover',  () => this._drawJournalCloseBtn(true));
+    closeZone.on('pointerout',   () => this._drawJournalCloseBtn(false));
+    closeZone.on('pointerdown',  () => this._closeJournal());
+  }
+
+  _drawJournalCloseBtn(hovered) {
+    const W = GAME_WIDTH, headerH = 60;
+    this._journalCloseBg.clear();
+    this._journalCloseBg.fillStyle(hovered ? 0x666666 : 0x333333, 1);
+    this._journalCloseBg.fillRoundedRect(W - 80, UI_HEIGHT + 10, 60, 40, 4);
+  }
+
+  _openJournal() {
+    if (this.overlayOpen) return;
+    this.journalOpen = true;
+    this.overlayOpen = true;
+    this._journalBg.setVisible(true);
+    this._journalTitle.setVisible(true);
+    this._journalCloseBg.setVisible(true);
+    this._journalCloseTxt.setVisible(true);
+    this._journalCloseZone.setVisible(true).setInteractive({ useHandCursor: true });
+    this._drawButton(this._btnJournal, false, true);
+    this.scene.pause('GameScene');
+    this._refreshJournalEntries();
+  }
+
+  _closeJournal() {
+    this.sfxButton.play();
+    this.journalOpen = false;
+    this.overlayOpen = false;
+    this._journalBg.setVisible(false);
+    this._journalTitle.setVisible(false);
+    this._journalCloseBg.setVisible(false);
+    this._journalCloseTxt.setVisible(false);
+    this._journalCloseZone.setVisible(false).removeInteractive();
+    this._drawButton(this._btnJournal, false, false);
+    this._clearJournalEntries();
+    this.scene.resume('GameScene');
+  }
+
+  _clearJournalEntries() {
+    for (const t of this._journalEntries) t.destroy();
+    this._journalEntries = [];
+  }
+
+  _refreshJournalEntries() {
+    this._clearJournalEntries();
+    const now = this.time.now;
+    const lineH   = 20; // height per text line (px)
+    const entryGap = 8; // extra spacing between entries
+    let currentY = UI_HEIGHT + 68;
+
+    if (this.alertHistory.length === 0) {
+      const t = this.add.text(GAME_WIDTH / 2, currentY + 20, 'No events yet.', {
+        fontSize: '15px', fontFamily: 'monospace', fill: '#555555',
+      }).setOrigin(0.5, 0).setDepth(202);
+      this._journalEntries.push(t);
+      return;
+    }
+
+    for (let i = 0; i < this.alertHistory.length; i++) {
+      if (currentY >= GAME_HEIGHT - 20) break;
+      const e = this.alertHistory[i];
+      const elapsed = Math.floor((now - e.time) / 1000);
+      const timeStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m`;
+      const text = `[${timeStr}]  ${e.text}`;
+      const t = this.add.text(40, currentY, text, {
+        fontSize: '15px', fontFamily: 'monospace', fill: i === 0 ? '#ffffff' : '#888888',
+      }).setDepth(202);
+      this._journalEntries.push(t);
+      const linesCount = e.text.split('\n').length;
+      currentY += linesCount * lineH + entryGap;
+    }
+  }
+
   _drawOkBtn(hovered) {
     const W = GAME_WIDTH, H = 100;
     this._okBg.clear();
@@ -241,6 +348,7 @@ class UIScene extends Phaser.Scene {
 
   showAlert(text, warning = false) {
     if (this.overlayOpen) return;
+    this.alertHistory.unshift({ text, time: this.time.now });
     this.alertLabel.setText(text);
     this.alertPopup.setVisible(true);
     this.overlayOpen = true;
@@ -354,6 +462,7 @@ class UIScene extends Phaser.Scene {
           ? "Game Over!\nThe land health has collapsed."
           : "Game Over!\nThe region is experiencing\na water crisis.",
       );
+      this.sfxWarning.play();
       this.gameOverPopup.setVisible(true);
       this.scene.pause("GameScene");
       return;
@@ -377,11 +486,15 @@ class UIScene extends Phaser.Scene {
           this._setBtnVisible(this._btnReforest, true);
         }
         this.showAlert("Alert! Water level is critical (< 20%). Try planting trees.", true);
+      } else if (GameState.water < 10 && !this.alertWaterCriticalTriggered) {
+        this.alertWaterCriticalTriggered = true;
+        this.showAlert("Warning: your community is facing a serious ecological crisis.\nIt is urgent to regenerate the forest and preserve water resources.", true);
       }
     }
 
     if (GameState.land_health >= 20) this.alertLandTriggered = false;
     if (GameState.water >= 20) this.alertWaterTriggered = false;
+    if (GameState.water >= 10) this.alertWaterCriticalTriggered = false;
   }
 
   _updateBars() {
