@@ -104,10 +104,7 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(5000, () => {
       if (this.buildingCells.length > 0) return;
       const ui = this.scene.get('UIScene');
-      if (ui) ui.showAlert(
-        'To build a shelter, cut at least 5 trees.\n' +
-        'You can click and hold to cut multiple trees at once.'
-      );
+      if (ui) ui.showAlert(t('alert_start'));
     });
   }
 
@@ -307,10 +304,7 @@ class GameScene extends Phaser.Scene {
     if (!this.woodAlertShown && GameState.wood >= 5 && this.buildingCells.length === 0) {
       this.woodAlertShown = true;
       const ui = this.scene.get('UIScene');
-      if (ui) ui.showAlert(
-        'Now that you have 5 pieces of wood, you can build your shelter.\n' +
-        'Click where you want to place your shelter.'
-      );
+      if (ui) ui.showAlert(t('alert_wood_ready'));
     }
   }
 
@@ -335,7 +329,7 @@ class GameScene extends Phaser.Scene {
       if (!this.farmLimitAlertShown) {
         this.farmLimitAlertShown = true;
         const ui = this.scene.get('UIScene');
-        if (ui) ui.showAlert('The number of farmland depends on your community size. Build more shelters to welcome more people.');
+        if (ui) ui.showAlert(t('alert_farm_limit'));
       }
       return;
     }
@@ -358,7 +352,7 @@ class GameScene extends Phaser.Scene {
       if (!this.buildLimitAlertShown) {
         this.buildLimitAlertShown = true;
         const ui = this.scene.get('UIScene');
-        if (ui) ui.showAlert('You need at least one farmland per shelter.\nCreate more gardens before building a new shelter.');
+        if (ui) ui.showAlert(t('alert_build_limit'));
       }
       return;
     }
@@ -385,10 +379,7 @@ class GameScene extends Phaser.Scene {
 
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
-      if (ui) ui.showAlert(
-        'Now that you have a shelter, you need to grow food so that your community can eat.\n' +
-        'Click on the Farm button then place a farmland wherever you want.'
-      );
+      if (ui) ui.showAlert(t('alert_shelter_built'));
     }
   }
 
@@ -528,7 +519,7 @@ class GameScene extends Phaser.Scene {
           if (!this.gardenReadyAlertShown) {
             this.gardenReadyAlertShown = true;
             const ui = this.scene.get('UIScene');
-            if (ui) ui.showAlert('Your first garden is ready!\nClick quickly to harvest before the produce goes off.');
+            if (ui) ui.showAlert(t('alert_garden_ready'));
           }
         }
       } else if (g.stage === 2 && g.timer >= 10) {
@@ -543,9 +534,10 @@ class GameScene extends Phaser.Scene {
 
   _harvestGarden(c, g) {
     if (this.sndHarvest) this.sndHarvest.play();
-    // First harvest: switch from wind to music (only if not raining)
+    // First harvest: start music after 10s delay (only if not raining)
     if (!this.musicUnlocked && this.rain.state === 'idle') {
-      this._startMusic();
+      this.musicUnlocked = true;
+      this.time.delayedCall(10000, () => this._startMusic());
     }
     const th = this.biomeLayer.getTileAt(c.x, c.y);
     if (th) th.alpha = 1;
@@ -567,11 +559,7 @@ class GameScene extends Phaser.Scene {
     if (!this.gardenHarvestAlertShown) {
       this.gardenHarvestAlertShown = true;
       const ui = this.scene.get('UIScene');
-      if (ui) ui.showAlert(
-        'Farming give food and wood. Now, you can expand your community by building other shelters.\n' +
-        'You can replant in the same place where you harvested.\n' +
-        'Pay attention to the damage you cause on the land health and on the water level.'
-      );
+      if (ui) ui.showAlert(t('alert_garden_harvest'));
     }
   }
 

@@ -24,6 +24,11 @@ const GameState = {
   shelterBuilt: false,
   gardenPlaced: false,
 
+  // UI state persisted across UIScene restarts (e.g. language change)
+  alertHistory: [],
+  uiFarmUnlocked: false,
+  uiReforestUnlocked: false,
+
   tiles: [],
 
   initTiles() {
@@ -70,6 +75,9 @@ const GameState = {
     this.current_action = this.ACTION_BUILD;
     this.shelterBuilt = false;
     this.gardenPlaced = false;
+    this.alertHistory = [];
+    this.uiFarmUnlocked = false;
+    this.uiReforestUnlocked = false;
     this.initTiles();
   },
 };

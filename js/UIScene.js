@@ -19,14 +19,17 @@ class UIScene extends Phaser.Scene {
     this.alertWaterCriticalLastTime = -Infinity;
     this.gameOver = false;
     this.overlayOpen = false;
-    this.alertHistory = [];
+    this.alertHistory = GameState.alertHistory; // shared reference, persists across restarts
     this.journalOpen = false;
     this._journalEntries = [];
     this._journalTimer = null;
+    this.musicEnabled = true;
+    this.sfxEnabled   = true;
 
     this._buildHUD();
     this._buildAlertPopup();
     this._buildJournalOverlay();
+    this._buildSettingsOverlay();
     this._buildGameOverPopup();
   }
 
@@ -88,37 +91,39 @@ class UIScene extends Phaser.Scene {
     }
 
     // Buttons
-    this._btnBuild    = this._makeButton(910,  12, 150, 'BUILD\n0/5 wood',     () => this._setAction(GameState.ACTION_BUILD));
-    this._btnFarm     = this._makeButton(1075, 12, 120, 'FARM\n0/1 wood',       () => this._setAction(GameState.ACTION_FARM));
-    this._btnReforest = this._makeButton(1210, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
-    this._btnJournal  = this._makeButton(1566, 12, 118, 'JOURNAL',              () => this._openJournal());
-    this._btnPicture  = this._makeButton(1698, 12, 210, 'TAKE A\nPICTURE',      () => this._takePicture());
+    this._btnBuild    = this._makeButton(910,  12, 150, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD));
+    this._btnFarm     = this._makeButton(1075, 12, 120, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false);
+    this._btnReforest = this._makeButton(1210, 12, 150, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false);
+    this._btnJournal  = this._makeButton(1505, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
+    this._btnSettings = this._makeButton(1610, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
+    this._btnPicture  = this._makeButton(1753, 12, 130, t('btn_picture'), () => this._takePicture(),  true, true);
 
-    this.farmUnlocked     = false;
-    this.reforestUnlocked = false;
-    this._setBtnVisible(this._btnFarm,     false);
-    this._setBtnVisible(this._btnReforest, false);
+    this.farmUnlocked     = GameState.uiFarmUnlocked;
+    this.reforestUnlocked = GameState.uiReforestUnlocked;
+    if (this.farmUnlocked)     this._setBtnVisible(this._btnFarm,     true);
+    if (this.reforestUnlocked) this._setBtnVisible(this._btnReforest, true);
 
     this._refreshButtons();
   }
 
-  _makeButton(x, y, w, label, cb) {
+  _makeButton(x, y, w, label, cb, initialVisible = true, textOnly = false) {
     const h = 46;
-    const bg = this.add.graphics();
+    const bg = this.add.graphics().setVisible(textOnly ? false : initialVisible);
     const txt = this.add
       .text(x + w / 2, y + h / 2, label, {
-        fontSize: "13px",
+        fontSize: textOnly ? "14px" : "13px",
         fontStyle: "bold",
-        fill: "#ffffff",
+        fill: textOnly ? "#aaaaaa" : "#ffffff",
         fontFamily: "monospace",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setVisible(initialVisible);
 
     const zone = this.add
       .zone(x, y, w, h)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
-    const btn = { bg, txt, zone, x, y, w, h, disabled: false, active: false, hovered: false };
+    const btn = { bg, txt, zone, x, y, w, h, disabled: false, active: false, hovered: false, textOnly };
     zone.on("pointerdown",  () => { if (!btn.disabled) { this.sfxButton.play(); cb(); } });
     zone.on("pointerover",  () => { if (!btn.disabled) { btn.hovered = true;  this._drawButton(btn, btn.active, btn.disabled); } });
     zone.on("pointerout",   () => {                       btn.hovered = false; this._drawButton(btn, btn.active, btn.disabled); });
@@ -135,6 +140,17 @@ class UIScene extends Phaser.Scene {
   _drawButton(btn, active, disabled) {
     btn.disabled = disabled;
     btn.active = active;
+    if (btn.textOnly) {
+      if (disabled) {
+        btn.txt.setStyle({ fill: '#555555' });
+      } else if (btn.hovered) {
+        btn.txt.setStyle({ fill: '#ffffff' });
+      } else {
+        btn.txt.setStyle({ fill: '#aaaaaa' });
+      }
+      btn.zone.setInteractive({ useHandCursor: true });
+      return;
+    }
     btn.bg.clear();
     let color, border;
     if (disabled) {
@@ -169,14 +185,15 @@ class UIScene extends Phaser.Scene {
     const canReforest = GameState.wood >= 1;
     const hasReplantable = gameScene && gameScene.gardens.some(g => g.stage === 3 || g.stage === 4);
     const canFarm     = GameState.wood >= 1 || hasReplantable;
-    this._btnBuild.txt.setText(`BUILD\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} wood`);
+    const wu = t('wood_unit');
+    this._btnBuild.txt.setText(`${t('btn_build')}\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} ${wu}`);
     this._drawButton(this._btnBuild, GameState.current_action === GameState.ACTION_BUILD, !canBuild);
     if (this.farmUnlocked) {
-      this._btnFarm.txt.setText(`FARM\n${GameState.wood}/1 wood`);
+      this._btnFarm.txt.setText(`${t('btn_farm')}\n${GameState.wood}/1 ${wu}`);
       this._drawButton(this._btnFarm, GameState.current_action === GameState.ACTION_FARM, !canFarm);
     }
     if (this.reforestUnlocked) {
-      this._btnReforest.txt.setText(`PLANT TREE\n${GameState.wood}/1 wood`);
+      this._btnReforest.txt.setText(`${t('btn_plant')}\n${GameState.wood}/1 ${wu}`);
       this._drawButton(this._btnReforest, GameState.current_action === GameState.ACTION_REFOREST, !canReforest);
     }
   }
@@ -218,7 +235,7 @@ class UIScene extends Phaser.Scene {
     this._drawOkBtn(false);
 
     this._okTxt = this.add
-      .text(W - 70, H / 2, "OK", {
+      .text(W - 70, H / 2, t('ok'), {
         fontSize: "15px",
         fill: "#ffffff",
         fontFamily: "monospace",
@@ -256,13 +273,13 @@ class UIScene extends Phaser.Scene {
     this._journalBg.lineStyle(1, 0x333333, 1);
     this._journalBg.lineBetween(0, sepY, W, sepY);
 
-    this._journalTitle = this.add.text(W / 2, UI_HEIGHT + headerH / 2, 'JOURNAL', {
+    this._journalTitle = this.add.text(W / 2, UI_HEIGHT + headerH / 2, t('journal_title'), {
       fontSize: '20px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffcc44',
     }).setOrigin(0.5).setDepth(201).setVisible(false);
 
     // Close button
     this._journalCloseBg = this.add.graphics().setDepth(201).setVisible(false);
-    this._journalCloseTxt = this.add.text(W - 50, UI_HEIGHT + headerH / 2, 'CLOSE', {
+    this._journalCloseTxt = this.add.text(W - 50, UI_HEIGHT + headerH / 2, t('journal_close'), {
       fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
     }).setOrigin(0.5).setDepth(202).setVisible(false);
     this._drawJournalCloseBtn(false);
@@ -311,7 +328,7 @@ class UIScene extends Phaser.Scene {
   }
 
   _clearJournalEntries() {
-    for (const t of this._journalEntries) t.destroy();
+    for (const entry of this._journalEntries) entry.destroy();
     this._journalEntries = [];
   }
 
@@ -323,10 +340,10 @@ class UIScene extends Phaser.Scene {
     let currentY = UI_HEIGHT + 68;
 
     if (this.alertHistory.length === 0) {
-      const t = this.add.text(GAME_WIDTH / 2, currentY + 20, 'No events yet.', {
+      const emptyTxt = this.add.text(GAME_WIDTH / 2, currentY + 20, t('journal_empty'), {
         fontSize: '15px', fontFamily: 'monospace', fill: '#555555',
       }).setOrigin(0.5, 0).setDepth(202);
-      this._journalEntries.push(t);
+      this._journalEntries.push(emptyTxt);
       return;
     }
 
@@ -336,22 +353,177 @@ class UIScene extends Phaser.Scene {
       const elapsed = Math.floor((now - e.time) / 1000);
       const timeStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m`;
       const text = `[${timeStr}]  ${e.text}`;
-      const t = this.add.text(40, currentY, text, {
+      const entry = this.add.text(40, currentY, text, {
         fontSize: '15px', fontFamily: 'monospace', fill: i === 0 ? '#ffffff' : '#888888',
       }).setDepth(202);
-      this._journalEntries.push(t);
+      this._journalEntries.push(entry);
       const linesCount = e.text.split('\n').length;
       currentY += linesCount * lineH + entryGap;
+    }
+  }
+
+  // ── Settings ─────────────────────────────────────────────────────────────────
+
+  _buildSettingsOverlay() {
+    const PW = 460, PH = 290;
+    const px = (GAME_WIDTH - PW) / 2, py = (GAME_HEIGHT - PH) / 2;
+
+    this._settingsPanel = this.add.container(px, py).setVisible(false).setDepth(200);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0d0d0d, 0.97);
+    bg.fillRoundedRect(0, 0, PW, PH, 8);
+    bg.lineStyle(1, 0x444444, 1);
+    bg.strokeRoundedRect(0, 0, PW, PH, 8);
+
+    const title = this.add.text(PW / 2, 28, t('settings_title'), {
+      fontSize: '18px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#cccccc',
+    }).setOrigin(0.5);
+
+    this._settingsBtnMusic = this._makeSettingsToggle(PW, 75,  t('settings_music'), () => this._toggleMusic());
+    this._settingsBtnSfx   = this._makeSettingsToggle(PW, 130, t('settings_sfx'),   () => this._toggleSfx());
+
+    // Language toggle row
+    const langLbl = this.add.text(40, 185, t('settings_lang'), {
+      fontSize: '14px', fontFamily: 'monospace', fill: '#aaaaaa',
+    }).setOrigin(0, 0.5);
+    this._settingsLangBg = this.add.graphics();
+    this._settingsLangTxt = this.add.text(PW - 100, 185, t('settings_lang_toggle'), {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
+    }).setOrigin(0.5);
+    this._drawSettingsLangBtn(false);
+    const langZone = this.add.zone(PW - 140, 167, 80, 36)
+      .setOrigin(0).setInteractive({ useHandCursor: true });
+    langZone.on('pointerover',  () => this._drawSettingsLangBtn(true));
+    langZone.on('pointerout',   () => this._drawSettingsLangBtn(false));
+    langZone.on('pointerdown',  () => {
+      window._gameLang = window._gameLang === 'fr' ? 'en' : 'fr';
+      this._closeSettings();
+      this.scene.restart();
+    });
+
+    // Close button (grey with hover)
+    this._settingsCloseBg = this.add.graphics();
+    this._drawSettingsCloseBtn(false);
+    const closeTxt = this.add.text(PW / 2, PH - 37, t('settings_close'), {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
+    }).setOrigin(0.5);
+    const closeZone = this.add.zone(PW / 2 - 60, PH - 55, 120, 36)
+      .setOrigin(0).setInteractive({ useHandCursor: true });
+    closeZone.on('pointerover',  () => this._drawSettingsCloseBtn(true));
+    closeZone.on('pointerout',   () => this._drawSettingsCloseBtn(false));
+    closeZone.on('pointerdown',  () => this._closeSettings());
+
+    this._settingsPanel.add([bg, title,
+      ...this._settingsBtnMusic.objects,
+      ...this._settingsBtnSfx.objects,
+      langLbl, this._settingsLangBg, this._settingsLangTxt, langZone,
+      this._settingsCloseBg, closeTxt, closeZone,
+    ]);
+  }
+
+  _drawSettingsCloseBtn(hovered) {
+    const PW = 460, PH = 290;
+    this._settingsCloseBg.clear();
+    this._settingsCloseBg.fillStyle(hovered ? 0x666666 : 0x333333, 1);
+    this._settingsCloseBg.fillRoundedRect(PW / 2 - 60, PH - 55, 120, 36, 4);
+  }
+
+  _drawSettingsLangBtn(hovered) {
+    const PW = 460;
+    this._settingsLangBg.clear();
+    this._settingsLangBg.fillStyle(hovered ? 0x555555 : 0x2a2a2a, 1);
+    this._settingsLangBg.fillRoundedRect(PW - 140, 167, 80, 36, 4);
+    this._settingsLangBg.lineStyle(1, hovered ? 0x888888 : 0x555555, 1);
+    this._settingsLangBg.strokeRoundedRect(PW - 140, 167, 80, 36, 4);
+  }
+
+  _makeSettingsToggle(PW, y, label, onToggle) {
+    const lbl = this.add.text(40, y, label, {
+      fontSize: '14px', fontFamily: 'monospace', fill: '#aaaaaa',
+    }).setOrigin(0, 0.5);
+
+    const btnBg = this.add.graphics();
+    const btnTxt = this.add.text(PW - 100, y, '', {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: '#ffffff',
+    }).setOrigin(0.5);
+    const zone = this.add.zone(PW - 140, y - 18, 80, 36)
+      .setOrigin(0).setInteractive({ useHandCursor: true });
+    zone.on('pointerdown', onToggle);
+
+    return { objects: [lbl, btnBg, btnTxt, zone], bg: btnBg, txt: btnTxt, y, PW };
+  }
+
+  _drawSettingsToggle(toggle, enabled) {
+    const { bg, txt, y, PW } = toggle;
+    bg.clear();
+    bg.fillStyle(enabled ? 0x2d6e2d : 0x6e2d2d, 1);
+    bg.fillRoundedRect(PW - 140, y - 18, 80, 36, 4);
+    txt.setText(enabled ? t('settings_on') : t('settings_off'));
+  }
+
+  _openSettings() {
+    if (this.overlayOpen) return;
+    this.overlayOpen = true;
+    this._drawButton(this._btnSettings, false, true);
+    this._drawSettingsToggle(this._settingsBtnMusic, this.musicEnabled);
+    this._drawSettingsToggle(this._settingsBtnSfx,   this.sfxEnabled);
+    this._settingsPanel.setVisible(true);
+    this.scene.pause('GameScene');
+  }
+
+  _closeSettings() {
+    this.overlayOpen = false;
+    this._drawButton(this._btnSettings, false, false);
+    this._settingsPanel.setVisible(false);
+    this.scene.resume('GameScene');
+  }
+
+  _toggleMusic() {
+    this.musicEnabled = !this.musicEnabled;
+    this._drawSettingsToggle(this._settingsBtnMusic, this.musicEnabled);
+    this._applyAudioSettings();
+  }
+
+  _toggleSfx() {
+    this.sfxEnabled = !this.sfxEnabled;
+    this._drawSettingsToggle(this._settingsBtnSfx, this.sfxEnabled);
+    this._applyAudioSettings();
+  }
+
+  _applyAudioSettings() {
+    const gs = this.scene.get('GameScene');
+    if (gs) {
+      for (const s of [gs.sndWind, gs.sndRain, gs.sndMusic]) {
+        if (s) s.setMute(!this.musicEnabled);
+      }
+      for (const s of [gs.sndBuild, gs.sndCuttingTree, gs.sndPlaceTile, gs.sndHarvest, gs.sndThunder]) {
+        if (s) s.setMute(!this.sfxEnabled);
+      }
+    }
+    for (const s of [this.sfxButton, this.sfxNotification, this.sfxWarning]) {
+      if (s) s.setMute(!this.sfxEnabled);
     }
   }
 
   // ── Picture export ───────────────────────────────────────────────────────────
 
   _setPictureMode(on) {
-    const btns = [this._btnBuild, this._btnFarm, this._btnReforest, this._btnJournal, this._btnPicture];
-    for (const btn of btns) {
-      btn.bg.setVisible(!on);
-      btn.txt.setVisible(!on);
+    if (on) {
+      this._setPictureHideOverlays();
+      // Remember which buttons were actually visible
+      const btns = [this._btnBuild, this._btnFarm, this._btnReforest, this._btnJournal, this._btnSettings, this._btnPicture];
+      this._pictureHiddenBtns = btns.filter(btn => btn.txt.visible);
+      for (const btn of this._pictureHiddenBtns) {
+        if (!btn.textOnly) btn.bg.setVisible(false);
+        btn.txt.setVisible(false);
+      }
+    } else {
+      for (const btn of (this._pictureHiddenBtns || [])) {
+        if (!btn.textOnly) btn.bg.setVisible(true);
+        btn.txt.setVisible(true);
+      }
+      this._pictureHiddenBtns = [];
     }
   }
 
@@ -364,8 +536,61 @@ class UIScene extends Phaser.Scene {
         link.href = image.src;
         link.click();
         this._setPictureMode(false);
+        // Re-show any overlay that was hidden
+        if (this._journalWasOpen) {
+          this._journalBg.setVisible(true);
+          this._journalTitle.setVisible(true);
+          this._journalCloseBg.setVisible(true);
+          this._journalCloseTxt.setVisible(true);
+          this._journalCloseZone.setVisible(true);
+          for (const e of this._journalEntries) e.setVisible(true);
+          this._journalWasOpen = false;
+        }
+        if (this._settingsWasOpen) {
+          this._settingsPanel.setVisible(true);
+          this._settingsWasOpen = false;
+        }
+        if (this._alertWasOpen) {
+          this.alertPopup.setVisible(true);
+          this._alertGradient.setVisible(true);
+          this._alertWasOpen = false;
+        }
+        if (this._gameOverWasOpen) {
+          this.gameOverPopup.setVisible(true);
+          this._gameOverWasOpen = false;
+        }
+        this.showAlert(t('alert_picture_saved'));
       });
     });
+  }
+
+  _setPictureHideOverlays() {
+    this._journalWasOpen = false;
+    this._settingsWasOpen = false;
+    this._alertWasOpen = false;
+    this._gameOverWasOpen = false;
+    if (this._journalBg.visible) {
+      this._journalWasOpen = true;
+      this._journalBg.setVisible(false);
+      this._journalTitle.setVisible(false);
+      this._journalCloseBg.setVisible(false);
+      this._journalCloseTxt.setVisible(false);
+      this._journalCloseZone.setVisible(false);
+      for (const e of this._journalEntries) e.setVisible(false);
+    }
+    if (this._settingsPanel.visible) {
+      this._settingsWasOpen = true;
+      this._settingsPanel.setVisible(false);
+    }
+    if (this.alertPopup.visible) {
+      this._alertWasOpen = true;
+      this.alertPopup.setVisible(false);
+      this._alertGradient.setVisible(false);
+    }
+    if (this.gameOverPopup.visible) {
+      this._gameOverWasOpen = true;
+      this.gameOverPopup.setVisible(false);
+    }
   }
 
   _drawOkBtn(hovered) {
@@ -427,7 +652,7 @@ class UIScene extends Phaser.Scene {
     replayBg.strokeRoundedRect(W / 2 - 80, H - 60, 160, 38, 4);
 
     const replayTxt = this.add
-      .text(W / 2, H - 41, "REPLAY", {
+      .text(W / 2, H - 41, t('replay'), {
         fontSize: "15px",
         fontStyle: "bold",
         fill: "#ffffff",
@@ -488,8 +713,8 @@ class UIScene extends Phaser.Scene {
       }
       this.gameOverLabel.setText(
         GameState.land_health === 0
-          ? "Game Over!\nThe land health has collapsed."
-          : "Game Over!\nThe region is experiencing\na water crisis.",
+          ? t('game_over_land')
+          : t('game_over_water'),
       );
       this.sfxWarning.play();
       this.gameOverPopup.setVisible(true);
@@ -500,6 +725,7 @@ class UIScene extends Phaser.Scene {
     // Unlock buttons
     if (!this.farmUnlocked && GameState.shelterBuilt) {
       this.farmUnlocked = true;
+      GameState.uiFarmUnlocked = true;
       this._setBtnVisible(this._btnFarm, true);
     }
 
@@ -507,19 +733,20 @@ class UIScene extends Phaser.Scene {
     if (!this.overlayOpen) {
       if (GameState.land_health < 20 && !this.alertLandTriggered) {
         this.alertLandTriggered = true;
-        this.showAlert("Alert! Land health is critical (< 20%).", true);
+        this.showAlert(t('alert_land_critical'), true);
       } else if (GameState.water < 20 && !this.alertWaterTriggered) {
         this.alertWaterTriggered = true;
         if (!this.reforestUnlocked) {
           this.reforestUnlocked = true;
+          GameState.uiReforestUnlocked = true;
           this._setBtnVisible(this._btnReforest, true);
         }
-        this.showAlert("Alert! Water level is critical (< 20%). Try planting trees.", true);
+        this.showAlert(t('alert_water_low'), true);
       } else if (GameState.water < 10 && !this.alertWaterCriticalTriggered &&
                  this.time.now - this.alertWaterCriticalLastTime > 300000) {
         this.alertWaterCriticalTriggered = true;
         this.alertWaterCriticalLastTime = this.time.now;
-        this.showAlert("Warning: your community is facing a serious ecological crisis.\nIt is urgent to regenerate the forest and preserve water resources.", true);
+        this.showAlert(t('alert_water_crisis'), true);
       }
     }
 
