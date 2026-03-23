@@ -194,6 +194,7 @@ class GameScene extends Phaser.Scene {
     } else if (act === GameState.ACTION_REFOREST &&
                td.biome === GameState.TILE_DESERT && !td.building &&
                GameState.wood >= 1) {
+      if (!this._pendingReforest) this._pendingReforest = { flipX: Math.random() < 0.5 };
       preview = 6; // gid 6 = sapling stage 1
     } else if (act === GameState.ACTION_FARM &&
                td.biome === GameState.TILE_DESERT && !td.building &&
@@ -220,7 +221,8 @@ class GameScene extends Phaser.Scene {
 
     if (preview !== -1) {
       const t = this.previewLayer.putTileAt(preview, c.x, c.y);
-      if (this._pendingBuild && t) t.flipX = this._pendingBuild.flipX;
+      if (this._pendingBuild    && t) t.flipX = this._pendingBuild.flipX;
+      if (this._pendingReforest && t) t.flipX = this._pendingReforest.flipX;
       this.lastPreviewCell = { x: c.x, y: c.y };
     }
   }
@@ -318,8 +320,11 @@ class GameScene extends Phaser.Scene {
     GameState.wood -= 1;
     td.biome = GameState.TILE_FOREST;
     td.has_tree = true;
-    this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
-    this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
+    const pending = this._pendingReforest || { flipX: Math.random() < 0.5 };
+    const reforestTile = this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
+    if (reforestTile) reforestTile.flipX = pending.flipX;
+    this._pendingReforest = null;
+    this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0, flipX: pending.flipX });
     GameState.changeLandHealth(1);
     this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
     this._floatLabelAtTile(c.x, c.y, +20, '+1', '#2d7a2d');
@@ -593,7 +598,8 @@ class GameScene extends Phaser.Scene {
       if (t.timer >= 30 && t.stage < 2) {
         t.timer -= 30;
         t.stage++;
-        this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
+        const growTile = this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
+        if (growTile && t.flipX) growTile.flipX = true;
         if (t.stage === 2) {
           GameState.changeWaterHidden(1);
           this._floatLabelAtTile(t.x, t.y, 0, '+1', '#1a6abf');
