@@ -158,10 +158,14 @@ class UIScene extends Phaser.Scene {
   }
 
   _refreshButtons() {
-    const canBuild    = GameState.wood >= GameState.BUILDING_WOOD_COST &&
-                        (!GameState.shelterBuilt || GameState.gardenPlaced);
-    const canReforest = GameState.wood >= 1;
     const gameScene   = this.scene.get('GameScene');
+    const buildings   = gameScene ? gameScene.buildingCells.length : 0;
+    const gardens     = gameScene ? gameScene.gardens.length : 0;
+    const withinLimit = buildings === 0 || buildings < gardens;
+    const canBuild    = GameState.wood >= GameState.BUILDING_WOOD_COST &&
+                        (!GameState.shelterBuilt || GameState.gardenPlaced) &&
+                        withinLimit;
+    const canReforest = GameState.wood >= 1;
     const hasReplantable = gameScene && gameScene.gardens.some(g => g.stage === 3 || g.stage === 4);
     const canFarm     = GameState.wood >= 1 || hasReplantable;
     this._btnBuild.txt.setText(`BUILD\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} wood`);

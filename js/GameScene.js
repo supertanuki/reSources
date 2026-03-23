@@ -24,6 +24,7 @@ class GameScene extends Phaser.Scene {
     this.gardenReadyAlertShown   = false;
     this.gardenHarvestAlertShown = false;
     this.farmLimitAlertShown     = false;
+    this.buildLimitAlertShown    = false;
     this.gardenBlinkTimer        = 0;
     this.gardenBlinkOn           = true;
     this.waterCrisisTimer        = 0;
@@ -348,6 +349,15 @@ class GameScene extends Phaser.Scene {
 
   _tryBuild(c, td) {
     if (GameState.wood < GameState.BUILDING_WOOD_COST) return;
+    if (this.buildingCells.length > 0 && this.buildingCells.length >= this.gardens.length) {
+      if (!this.buildLimitAlertShown) {
+        this.buildLimitAlertShown = true;
+        const ui = this.scene.get('UIScene');
+        if (ui) ui.showAlert('You need at least one farmland per shelter.\nCreate more gardens before building a new shelter.');
+      }
+      return;
+    }
+    this.buildLimitAlertShown = false;
     if (this.sndBuild) this.sndBuild.play();
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
