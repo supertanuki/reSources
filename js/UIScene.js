@@ -16,6 +16,7 @@ class UIScene extends Phaser.Scene {
     this.alertLandTriggered = false;
     this.alertWaterTriggered = false;
     this.alertWaterCriticalTriggered = false;
+    this.alertWaterCriticalLastTime = -Infinity;
     this.gameOver = false;
     this.overlayOpen = false;
     this.alertHistory = [];
@@ -486,8 +487,10 @@ class UIScene extends Phaser.Scene {
           this._setBtnVisible(this._btnReforest, true);
         }
         this.showAlert("Alert! Water level is critical (< 20%). Try planting trees.", true);
-      } else if (GameState.water < 10 && !this.alertWaterCriticalTriggered) {
+      } else if (GameState.water < 10 && !this.alertWaterCriticalTriggered &&
+                 this.time.now - this.alertWaterCriticalLastTime > 300000) {
         this.alertWaterCriticalTriggered = true;
+        this.alertWaterCriticalLastTime = this.time.now;
         this.showAlert("Warning: your community is facing a serious ecological crisis.\nIt is urgent to regenerate the forest and preserve water resources.", true);
       }
     }

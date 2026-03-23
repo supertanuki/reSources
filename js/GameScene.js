@@ -262,7 +262,7 @@ class GameScene extends Phaser.Scene {
   // Base: world coordinates
   _floatLabel(wx, wy, text, color) {
     const t = this.add.text(wx, wy, text, {
-      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: color,
+      fontSize: '17px', fontStyle: 'bold', fontFamily: 'monospace', fill: color,
     }).setOrigin(0.5, 1).setDepth(6);
     this.tweens.add({ targets: t, y: wy - 36, alpha: 0, duration: 2900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
   }
@@ -281,9 +281,9 @@ class GameScene extends Phaser.Scene {
     GameState.addWood(1);
     GameState.changeLandHealth(-1);
     GameState.changeWaterHidden(-1);
-    this._floatLabelAtTile(c.x, c.y, -20, '-1', '#2d7a2d');
-    this._floatLabelAtTile(c.x, c.y,   0, '-1', '#4499ff');
-    this._floatLabelAtTile(c.x, c.y, +20, '+1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, -32, '-1', '#2d7a2d');
+    this._floatLabelAtTile(c.x, c.y,   0, '-1', '#1a6abf');
+    this._floatLabelAtTile(c.x, c.y, +32, '+1', '#aa6633');
 
     this.treesCut++;
     if (!this.rain.started && GameState.waterHidden < 50) this._startRain();
@@ -307,8 +307,8 @@ class GameScene extends Phaser.Scene {
     this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
     this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.changeLandHealth(1);
-    this._floatLabelAtTile(c.x, c.y, -12, '-1', '#aa6633');
-    this._floatLabelAtTile(c.x, c.y, +12, '+1', '#2d7a2d');
+    this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, +20, '+1', '#2d7a2d');
   }
 
   _placeFarm(c, td) {
@@ -329,8 +329,8 @@ class GameScene extends Phaser.Scene {
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.gardenPlaced = true;
-    this._floatLabelAtTile(c.x, c.y, -12, '-1', '#aa6633');
-    this._floatLabelAtTile(c.x, c.y, +12, '-2', '#4499ff');
+    this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, +20, '-2', '#1a6abf');
   }
 
   _tryBuild(c, td) {
@@ -351,9 +351,9 @@ class GameScene extends Phaser.Scene {
     this._registerBuilding(c);
     const spawned = this._spawnPeople(c);
     const waterCost = 1 + spawned;
-    this._floatLabelAtTile(c.x, c.y, -20, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
-    this._floatLabelAtTile(c.x, c.y,   0, `-${waterCost}`,                   '#4499ff');
-    this._floatLabelAtTile(c.x, c.y, +20, `+${spawned}`,                     '#111111');
+    this._floatLabelAtTile(c.x, c.y, -32, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
+    this._floatLabelAtTile(c.x, c.y,   0, `-${waterCost}`,                   '#1a6abf');
+    this._floatLabelAtTile(c.x, c.y, +32, `+${spawned}`,                     '#111111');
 
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
@@ -533,9 +533,9 @@ class GameScene extends Phaser.Scene {
       const spawnPos = this._randomDesertNear(c);
       this.persons.push(new Person(this, spawnPos.x, spawnPos.y));
     }
-    this._floatLabelAtTile(c.x, c.y, -20, '+1', '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, -32, '+1', '#aa6633');
     this._floatLabelAtTile(c.x, c.y,   0, '+1', '#ffaa33');
-    if (hadCapacity) this._floatLabelAtTile(c.x, c.y, +20, '+1', '#111111');
+    if (hadCapacity) this._floatLabelAtTile(c.x, c.y, +32, '+1', '#111111');
     if (!this.gardenHarvestAlertShown) {
       this.gardenHarvestAlertShown = true;
       const ui = this.scene.get('UIScene');
@@ -559,7 +559,7 @@ class GameScene extends Phaser.Scene {
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
     GameState.changeWaterHidden(-2);
-    this._floatLabelAtTile(c.x, c.y, 0, '-2', '#4499ff');
+    this._floatLabelAtTile(c.x, c.y, 0, '-2', '#1a6abf');
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
@@ -573,7 +573,7 @@ class GameScene extends Phaser.Scene {
         this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
         if (t.stage === 2) {
           GameState.changeWaterHidden(1);
-          this._floatLabelAtTile(t.x, t.y, 0, '+1', '#4499ff');
+          this._floatLabelAtTile(t.x, t.y, 0, '+1', '#1a6abf');
         }
       }
       return t.stage < 2; // remove once fully grown (stage 2 stays as gid 8)
