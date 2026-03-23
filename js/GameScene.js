@@ -702,7 +702,7 @@ class GameScene extends Phaser.Scene {
     this.rain.started       = true;
     this.rain.lightningTimer = 0;
     this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
-    this.rain.totalGain     = Math.round(5 + ((this.rain.duration - 30) / 30) * 5); // 5–10 pts
+    this.rain.totalGain     = Math.round(10 + ((this.rain.duration - 30) / 30) * 10); // 10–20 pts
     this.rain.gainGiven     = 0;
     this.rain.gainTimer     = 0;
     this.rain.gainInterval  = this.rain.duration / this.rain.totalGain;
