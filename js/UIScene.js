@@ -91,7 +91,8 @@ class UIScene extends Phaser.Scene {
     this._btnBuild    = this._makeButton(910,  12, 150, 'BUILD\n0/5 wood',     () => this._setAction(GameState.ACTION_BUILD));
     this._btnFarm     = this._makeButton(1075, 12, 120, 'FARM\n0/1 wood',       () => this._setAction(GameState.ACTION_FARM));
     this._btnReforest = this._makeButton(1210, 12, 150, 'PLANT TREE\n0/1 wood', () => this._setAction(GameState.ACTION_REFOREST));
-    this._btnJournal  = this._makeButton(1800, 12, 108, 'JOURNAL',              () => this._openJournal());
+    this._btnJournal  = this._makeButton(1566, 12, 118, 'JOURNAL',              () => this._openJournal());
+    this._btnPicture  = this._makeButton(1698, 12, 210, 'TAKE A\nPICTURE',      () => this._takePicture());
 
     this.farmUnlocked     = false;
     this.reforestUnlocked = false;
@@ -342,6 +343,29 @@ class UIScene extends Phaser.Scene {
       const linesCount = e.text.split('\n').length;
       currentY += linesCount * lineH + entryGap;
     }
+  }
+
+  // ── Picture export ───────────────────────────────────────────────────────────
+
+  _setPictureMode(on) {
+    const btns = [this._btnBuild, this._btnFarm, this._btnReforest, this._btnJournal, this._btnPicture];
+    for (const btn of btns) {
+      btn.bg.setVisible(!on);
+      btn.txt.setVisible(!on);
+    }
+  }
+
+  _takePicture() {
+    this._setPictureMode(true);
+    this.time.delayedCall(50, () => {
+      this.game.renderer.snapshot((image) => {
+        const link = document.createElement('a');
+        link.download = 'reSources.png';
+        link.href = image.src;
+        link.click();
+        this._setPictureMode(false);
+      });
+    });
   }
 
   _drawOkBtn(hovered) {
