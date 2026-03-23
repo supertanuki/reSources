@@ -25,6 +25,9 @@ const STRINGS = {
     btn_settings: 'SETTINGS',
     btn_picture:  'TAKE A PICTURE',
     wood_unit:    'wood',
+    hud_land:     'Land health',
+    hud_water:    'Water',
+    hud_community:'Community',
 
     // Settings
     settings_title:       'SETTINGS',
@@ -76,6 +79,9 @@ const STRINGS = {
     btn_settings: 'OPTIONS',
     btn_picture:  'PRENDRE UNE PHOTO',
     wood_unit:    'bois',
+    hud_land:     'Santé des sols',
+    hud_water:    'Eau',
+    hud_community:'Communauté',
 
     // Settings
     settings_title:       'OPTIONS',

@@ -58,9 +58,9 @@ class UIScene extends Phaser.Scene {
 
     // Resource bars: [label, stateKey, x, color]
     const barDefs = [
-      { label: "Land health", key: "land_health", x: 140, color: 0x55cc55 },
-      { label: "Water", key: "water", x: 340, color: 0x4499ff },
-      { label: "Community", key: "community", x: 540, color: 0xffaa33 },
+      { label: t('hud_land'),      key: "land_health", x: 140, color: 0x55cc55 },
+      { label: t('hud_water'),     key: "water",       x: 340, color: 0x4499ff },
+      { label: t('hud_community'), key: "community",   x: 540, color: 0xffaa33 },
     ];
 
     this._barFills = [];
