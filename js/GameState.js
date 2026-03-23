@@ -19,6 +19,7 @@ const GameState = {
   land_health: 100,
   community: 0,
   water: 100,
+  waterHidden: 100,
   current_action: 0,
   shelterBuilt: false,
   gardenPlaced: false,
@@ -56,12 +57,16 @@ const GameState = {
   changeWater(delta) {
     this.water = Math.max(0, Math.min(100, this.water + delta));
   },
+  changeWaterHidden(delta) {
+    this.waterHidden = Math.max(0, Math.min(100, this.waterHidden + delta));
+  },
 
   reset() {
     this.wood = 0;
     this.land_health = 100;
     this.community = 0;
     this.water = 100;
+    this.waterHidden = 100;
     this.current_action = this.ACTION_BUILD;
     this.shelterBuilt = false;
     this.gardenPlaced = false;

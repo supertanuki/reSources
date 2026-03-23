@@ -109,9 +109,11 @@ class UIScene extends Phaser.Scene {
       .zone(x, y, w, h)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
-    zone.on("pointerdown", () => { this.sfxButton.play(); cb(); });
-
-    return { bg, txt, zone, x, y, w, h, disabled: false, active: false };
+    const btn = { bg, txt, zone, x, y, w, h, disabled: false, active: false, hovered: false };
+    zone.on("pointerdown",  () => { if (!btn.disabled) { this.sfxButton.play(); cb(); } });
+    zone.on("pointerover",  () => { if (!btn.disabled) { btn.hovered = true;  this._drawButton(btn, btn.active, btn.disabled); } });
+    zone.on("pointerout",   () => {                       btn.hovered = false; this._drawButton(btn, btn.active, btn.disabled); });
+    return btn;
   }
 
   _setBtnVisible(btn, visible) {
@@ -125,8 +127,15 @@ class UIScene extends Phaser.Scene {
     btn.disabled = disabled;
     btn.active = active;
     btn.bg.clear();
-    const color = disabled ? 0x2a2a2a : active ? 0x2d6e2d : 0x3a3a3a;
-    const border = disabled ? 0x555555 : active ? 0x55cc55 : 0x888888;
+    let color, border;
+    if (disabled) {
+      color = 0x2a2a2a; border = 0x555555;
+    } else if (active) {
+      color = btn.hovered ? 0x3d8e3d : 0x2d6e2d; border = 0x55cc55;
+    } else {
+      color = btn.hovered ? 0x555555 : 0x3a3a3a;
+      border = btn.hovered ? 0xaaaaaa : 0x888888;
+    }
     btn.bg.lineStyle(1, border, 1);
     btn.bg.fillStyle(color, 1);
     btn.bg.fillRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
@@ -144,7 +153,9 @@ class UIScene extends Phaser.Scene {
     const canBuild    = GameState.wood >= GameState.BUILDING_WOOD_COST &&
                         (!GameState.shelterBuilt || GameState.gardenPlaced);
     const canReforest = GameState.wood >= 1;
-    const canFarm     = GameState.wood >= 1;
+    const gameScene   = this.scene.get('GameScene');
+    const hasReplantable = gameScene && gameScene.gardens.some(g => g.stage === 3 || g.stage === 4);
+    const canFarm     = GameState.wood >= 1 || hasReplantable;
     this._btnBuild.txt.setText(`BUILD\n${GameState.wood}/${GameState.BUILDING_WOOD_COST} wood`);
     this._drawButton(this._btnBuild, GameState.current_action === GameState.ACTION_BUILD, !canBuild);
     if (this.farmUnlocked) {
@@ -163,6 +174,11 @@ class UIScene extends Phaser.Scene {
     const W = GAME_WIDTH;
     const H = 100;
     const py = GAME_HEIGHT - H;
+
+    // Gradient overlay: transparent → black 50%, above the alert banner
+    this._alertGradient = this.add.graphics().setDepth(99).setVisible(false);
+    this._alertGradient.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.5, 0.5);
+    this._alertGradient.fillRect(0, UI_HEIGHT, W, GAME_HEIGHT - UI_HEIGHT - H);
 
     this.alertPopup = this.add
       .container(0, py)
@@ -185,11 +201,10 @@ class UIScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0.5);
 
-    const okBg = this.add.graphics();
-    okBg.fillStyle(0x444444, 1);
-    okBg.fillRoundedRect(W - 120, H / 2 - 17, 100, 34, 4);
+    this._okBg = this.add.graphics();
+    this._drawOkBtn(false);
 
-    const okTxt = this.add
+    this._okTxt = this.add
       .text(W - 70, H / 2, "OK", {
         fontSize: "15px",
         fill: "#ffffff",
@@ -201,14 +216,27 @@ class UIScene extends Phaser.Scene {
       .zone(W - 120, H / 2 - 17, 100, 34)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
+    okZone.on("pointerover",  () => this._drawOkBtn(true));
+    okZone.on("pointerout",   () => this._drawOkBtn(false));
     okZone.on("pointerdown", () => {
       this.sfxButton.play();
+      this.tweens.killTweensOf([this._okBg, this._okTxt]);
+      this._okBg.setAlpha(1);
+      this._okTxt.setAlpha(1);
+      this._alertGradient.setVisible(false);
       this.alertPopup.setVisible(false);
       this.overlayOpen = false;
       this.scene.resume("GameScene");
     });
 
-    this.alertPopup.add([bg, this.alertLabel, okBg, okTxt, okZone]);
+    this.alertPopup.add([bg, this.alertLabel, this._okBg, this._okTxt, okZone]);
+  }
+
+  _drawOkBtn(hovered) {
+    const W = GAME_WIDTH, H = 100;
+    this._okBg.clear();
+    this._okBg.fillStyle(hovered ? 0x666666 : 0x444444, 1);
+    this._okBg.fillRoundedRect(W - 120, H / 2 - 17, 100, 34, 4);
   }
 
   showAlert(text, warning = false) {
@@ -219,6 +247,11 @@ class UIScene extends Phaser.Scene {
     this.scene.pause("GameScene");
     if (warning) this.sfxWarning.play();
     else         this.sfxNotification.play();
+    this.tweens.killTweensOf([this._okBg, this._okTxt]);
+    this._okBg.setAlpha(1);
+    this._okTxt.setAlpha(1);
+    this._alertGradient.setVisible(true);
+    this.tweens.add({ targets: [this._okBg, this._okTxt], alpha: 0.15, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
   // ── Game Over popup ──────────────────────────────────────────────────────────
@@ -336,24 +369,14 @@ class UIScene extends Phaser.Scene {
     if (!this.overlayOpen) {
       if (GameState.land_health < 20 && !this.alertLandTriggered) {
         this.alertLandTriggered = true;
-        this.alertLabel.setText("Alert! Land health is critical (< 20%).");
-        this.alertPopup.setVisible(true);
-        this.overlayOpen = true;
-        this.scene.pause("GameScene");
-        this.sfxWarning.play();
+        this.showAlert("Alert! Land health is critical (< 20%).", true);
       } else if (GameState.water < 20 && !this.alertWaterTriggered) {
         this.alertWaterTriggered = true;
         if (!this.reforestUnlocked) {
           this.reforestUnlocked = true;
           this._setBtnVisible(this._btnReforest, true);
         }
-        this.alertLabel.setText(
-          "Alert! Water level is critical (< 20%). Try planting trees.",
-        );
-        this.alertPopup.setVisible(true);
-        this.overlayOpen = true;
-        this.scene.pause("GameScene");
-        this.sfxWarning.play();
+        this.showAlert("Alert! Water level is critical (< 20%). Try planting trees.", true);
       }
     }
 
@@ -402,7 +425,7 @@ class UIScene extends Phaser.Scene {
         14,
         3,
       );
-      item.valText.setText(String(value));
+      item.valText.setText(String(Math.round(value)));
     }
   }
 }

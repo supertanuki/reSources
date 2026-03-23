@@ -63,7 +63,7 @@ class GameScene extends Phaser.Scene {
     this.sndRain = this.sndMusic = this.sndThunder = null;
     this.sndBuild = this.sndCuttingTree = this.sndPlaceTile = this.sndHarvest = null;
     this._musicLoopTimer = null;
-    this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 1 });
+    this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 2 });
     this.sndWind.play();
     this.load.audio('sfx-rain',         'sfx/sfx-rain.mp3');
     this.load.audio('sfx-thunder',      'sfx/sfx-thunder.mp3');
@@ -77,7 +77,7 @@ class GameScene extends Phaser.Scene {
       this.sndMusic       = this.sound.add('music-theme',      { loop: false, volume: 0 });
       this.sndMusic.on('complete', () => {
         if (this._musicLoopTimer) this._musicLoopTimer.remove();
-        this._musicLoopTimer = this.time.delayedCall(10000, () => {
+        this._musicLoopTimer = this.time.delayedCall(30000, () => {
           this._musicLoopTimer = null;
           if (this.sndMusic && !this.sndMusic.isPlaying) {
             this.sndMusic.setVolume(0.1);
@@ -94,6 +94,11 @@ class GameScene extends Phaser.Scene {
     this.load.start();
 
     this.scene.launch('UIScene');
+
+    // Fade-in
+    const fadeW = GameState.MAP_WIDTH * 32, fadeH = GameState.MAP_HEIGHT * 32 + UI_HEIGHT;
+    const fadeRect = this.add.rectangle(0, 0, fadeW, fadeH, 0x000000).setOrigin(0).setAlpha(1).setDepth(10);
+    this.tweens.add({ targets: fadeRect, alpha: 0, duration: 1000, onComplete: () => fadeRect.destroy() });
 
     this.time.delayedCall(5000, () => {
       if (this.buildingCells.length > 0) return;
@@ -253,6 +258,15 @@ class GameScene extends Phaser.Scene {
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
+  _floatLabel(c, text, color) {
+    const wx = c.x * 32 + 16;
+    const wy = c.y * 32 + UI_HEIGHT + 8;
+    const t = this.add.text(wx, wy, text, {
+      fontSize: '13px', fontStyle: 'bold', fontFamily: 'monospace', fill: color,
+    }).setOrigin(0.5, 1).setDepth(6);
+    this.tweens.add({ targets: t, y: wy - 36, alpha: 0, duration: 900, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
+  }
+
   _harvestTree(c, td) {
     if (this.sndCuttingTree) this.sndCuttingTree.play();
     td.has_tree = false;
@@ -261,10 +275,12 @@ class GameScene extends Phaser.Scene {
     this.growingTrees = this.growingTrees.filter(t => !(t.x === c.x && t.y === c.y));
     GameState.addWood(1);
     GameState.changeLandHealth(-1);
-    GameState.changeWater(-1);
+    GameState.changeWaterHidden(-1);
+    this._floatLabel({ x: c.x - 0.4, y: c.y }, '-1', '#55cc55');
+    this._floatLabel({ x: c.x + 0.4, y: c.y }, '-1', '#4499ff');
 
     this.treesCut++;
-    if (!this.rain.started && GameState.water < 50) this._startRain();
+    if (!this.rain.started && GameState.waterHidden < 50) this._startRain();
 
     if (!this.woodAlertShown && GameState.wood >= 5 && this.buildingCells.length === 0) {
       this.woodAlertShown = true;
@@ -300,7 +316,7 @@ class GameScene extends Phaser.Scene {
     if (GameState.wood < 1) return;
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
-    GameState.changeWater(-2);
+    GameState.changeWaterHidden(-2);
     td.biome = GameState.TILE_FARM;
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
@@ -318,7 +334,7 @@ class GameScene extends Phaser.Scene {
     if (buildTile) buildTile.flipX = pending.flipX;
     this._pendingBuild = null;
     GameState.changeCommunity(2);
-    GameState.changeWater(-1);
+    GameState.changeWaterHidden(-1);
     const firstBuilding = this.buildingCells.length === 0;
     if (firstBuilding) GameState.shelterBuilt = true;
     this.woodAlertShown = true;
@@ -345,7 +361,7 @@ class GameScene extends Phaser.Scene {
       if (this.persons.length >= this.buildingCells.length * 4) break;
       const pos = this._randomDesertNear(c);
       this.persons.push(new Person(this, pos.x, pos.y));
-      GameState.changeWater(-1);
+      GameState.changeWaterHidden(-1);
     }
   }
 
@@ -521,7 +537,7 @@ class GameScene extends Phaser.Scene {
     g.stage = 0;
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
-    GameState.changeWater(-2);
+    GameState.changeWaterHidden(-2);
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
@@ -533,7 +549,7 @@ class GameScene extends Phaser.Scene {
         t.timer -= 30;
         t.stage++;
         this.biomeLayer.putTileAt(6 + t.stage, t.x, t.y); // gid 7 then 8
-        if (t.stage === 2) GameState.changeWater(1);
+        if (t.stage === 2) GameState.changeWaterHidden(1);
       }
       return t.stage < 2; // remove once fully grown (stage 2 stays as gid 8)
     });
@@ -562,9 +578,8 @@ class GameScene extends Phaser.Scene {
 
   _startMusic() {
     this.musicUnlocked = true;
-    this.sndMusic.setVolume(0);
+    this.sndMusic.setVolume(0.1);
     if (!this.sndMusic.isPlaying) this.sndMusic.play();
-    this._fadeSound(this.sndMusic, 0.1, 3000);
   }
 
   // ── Rain ─────────────────────────────────────────────────────────────────────
@@ -583,7 +598,7 @@ class GameScene extends Phaser.Scene {
     if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
     this.sndRain.setVolume(0);
     if (!this.sndRain.isPlaying) this.sndRain.play();
-    this._fadeSound(this.sndRain, 1, 3000);
+    this._fadeSound(this.sndRain, 0.5, 3000);
   }
 
   _triggerLightning() {
@@ -638,7 +653,7 @@ class GameScene extends Phaser.Scene {
         this.rainGraphics.clear();
         this.rainOverlay.setAlpha(0);
         const gain = Math.round(5 + ((r.duration - 30) / 30) * 5); // 5–10 pts
-        GameState.changeWater(gain);
+        GameState.changeWaterHidden(gain);
         r.nextTimer = 120 + Math.random() * 180; // 120–300 s
         // Audio: fade out rain, start music
         this._fadeSound(this.sndRain, 0, 3000, () => this._startMusic());
@@ -697,19 +712,20 @@ class GameScene extends Phaser.Scene {
   update(_, delta) {
     const dt = delta / 1000;
 
-    // Water regen (+1 every 30s)
+    // Water regen (+1 every 30s) → hidden indicator
     this.waterRegenTimer += dt;
     if (this.waterRegenTimer >= 30) {
       this.waterRegenTimer = 0;
-      GameState.changeWater(1);
+      GameState.changeWaterHidden(1);
     }
 
-    // Water drain (1 tile every 2s)
+    // Water tiles converge toward waterHidden (1 tile every 2s)
+    // GameState.water is always derived from tile count → always in sync
     if (this.initialWaterCount > 0) {
       this.waterDrainTimer += dt;
       if (this.waterDrainTimer >= 2) {
         this.waterDrainTimer = 0;
-        const target = Math.round((GameState.water / 100) * this.initialWaterCount);
+        const target = Math.round((GameState.waterHidden / 100) * this.initialWaterCount);
         if (this.waterCells.length > target) {
           const tile = this._leastConnectedWaterTile();
           if (tile) {
@@ -725,6 +741,8 @@ class GameScene extends Phaser.Scene {
             this.waterCells.push({ x: tile.x, y: tile.y });
           }
         }
+        // Visible indicator = exact reflection of current tile count
+        GameState.water = Math.round((this.waterCells.length / this.initialWaterCount) * 100);
       }
     }
 

@@ -69,7 +69,12 @@ class TitleScene extends Phaser.Scene {
     zone.on('pointerdown', () => {
       this.sound.play('sfx-button');
       this.scale.startFullscreen();
-      this.scene.start('GameScene');
+      zone.removeInteractive();
+      const fade = this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0).setAlpha(0).setDepth(10);
+      this.tweens.add({
+        targets: fade, alpha: 1, duration: 1000,
+        onComplete: () => this.scene.start('GameScene'),
+      });
     });
   }
 }
