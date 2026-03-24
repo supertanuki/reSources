@@ -85,9 +85,9 @@ class UIScene extends Phaser.Scene {
     }
 
     // Buttons
-    this._btnBuild    = this._makeButton(910,  12, 150, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD));
-    this._btnFarm     = this._makeButton(1075, 12, 120, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false);
-    this._btnReforest = this._makeButton(1210, 12, 150, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false);
+    this._btnBuild    = this._makeButton(890,  12, 140, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD));
+    this._btnFarm     = this._makeButton(1045, 12, 140, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false);
+    this._btnReforest = this._makeButton(1200, 12, 140, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false);
     this._btnJournal  = this._makeButton(1505, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
     this._btnSettings = this._makeButton(1620, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
 
@@ -121,10 +121,8 @@ class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setVisible(initialVisible);
 
-    const zone = this.add
-      .zone(x, y, w, h)
-      .setOrigin(0)
-      .setInteractive({ useHandCursor: true });
+    const zone = this.add.zone(x, y, w, h).setOrigin(0);
+    if (initialVisible) zone.setInteractive({ useHandCursor: true });
     const btn = { bg, txt, zone, x, y, w, h, disabled: false, active: false, hovered: false, textOnly };
     zone.on("pointerdown",  () => { if (!btn.disabled) { this.sfxButton.play(); cb(); } });
     zone.on("pointerover",  () => { if (!btn.disabled) { btn.hovered = true;  this._drawButton(btn, btn.active, btn.disabled); } });
