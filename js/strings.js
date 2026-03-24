@@ -20,7 +20,7 @@ const STRINGS = {
     // HUD buttons
     btn_build:    'BUILD',
     btn_farm:     'FARM',
-    btn_plant:    'PLANT TREE',
+    btn_plant:    'REFOREST',
     btn_journal:  'JOURNAL',
     btn_settings: 'SETTINGS',
     btn_picture:  'TAKE A PICTURE',
@@ -33,6 +33,7 @@ const STRINGS = {
     settings_title:       'SETTINGS',
     settings_music:       'MUSIC',
     settings_sfx:         'SOUND FX',
+    settings_alerts:      'SEE ALERTS',
     settings_lang:        'LANGUAGE',
     settings_lang_toggle: 'FR',
     settings_on:          'ON',
@@ -78,7 +79,7 @@ const STRINGS = {
     // HUD buttons
     btn_build:    'CONSTRUIRE',
     btn_farm:     'PLANTER',
-    btn_plant:    'PLANTER ARBRE',
+    btn_plant:    'REFORESTER',
     btn_journal:  'JOURNAL',
     btn_settings: 'OPTIONS',
     btn_picture:  'PRENDRE UNE PHOTO',
@@ -91,6 +92,7 @@ const STRINGS = {
     settings_title:       'OPTIONS',
     settings_music:       'MUSIQUE',
     settings_sfx:         'EFFETS SONORES',
+    settings_alerts:      'VOIR LES ALERTES',
     settings_lang:        'LANGUE',
     settings_lang_toggle: 'EN',
     settings_on:          'OUI',
