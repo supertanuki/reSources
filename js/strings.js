@@ -63,6 +63,7 @@ const STRINGS = {
     alert_water_crisis:   'Warning: your community is facing a serious ecological crisis.\nIt is urgent to regenerate the forest and preserve water resources.',
     alert_build_limit:    'You need at least one farmland per shelter.\nCreate more gardens before building a new shelter.',
     alert_picture_saved:  'A memory has been saved on your computer!',
+    alert_all_full:       'Well done, you have built a sustainable community.\nBut nothing is guaranteed, keep preserving resources.',
   },
 
   fr: {
@@ -118,5 +119,6 @@ const STRINGS = {
     alert_water_crisis:   "Avertissement : votre communauté fait face à une grave crise écologique.\nIl est urgent de régénérer la forêt et de préserver les ressources en eau.",
     alert_build_limit:    "Il vous faut au moins un potager par abri.\nCréez plus de potagers avant de construire un nouvel abri.",
     alert_picture_saved:  'Un souvenir a été sauvegardé sur votre machine !',
+    alert_all_full:       'Bravo, vous avez construit une communauté soutenable.\nMais rien n\'est acquis, continuez à préserver les ressources.',
   },
 };

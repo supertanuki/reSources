@@ -7,6 +7,7 @@ class UIScene extends Phaser.Scene {
     this.load.audio('sfx-button',       'sfx/sfx-button.mp3');
     this.load.audio('sfx-notification', 'sfx/sfx-notification.mp3');
     this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
+    this.load.audio('sfx-congrats',     'sfx/sfx-congrats.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
 
@@ -14,9 +15,11 @@ class UIScene extends Phaser.Scene {
     this.sfxButton       = this.sound.add('sfx-button');
     this.sfxNotification = this.sound.add('sfx-notification');
     this.sfxWarning      = this.sound.add('sfx-warning');
+    this.sfxCongrats     = this.sound.add('sfx-congrats');
     this.alertLandTriggered = false;
     this.alertReforestTriggered = false;
     this.alertWaterTriggered = false;
+    this.alertAllFullTriggered = false;
     this.alertWaterCriticalTriggered = false;
     this.alertWaterCriticalLastTime = -Infinity;
     this.gameOver = false;
@@ -215,11 +218,11 @@ class UIScene extends Phaser.Scene {
     this._drawOkBtn(false);
 
     this._okTxt = this.add
-      .bitmapText(W - 100, H / 2, "pixel", t('ok'), 32)
+      .bitmapText(W - 110, H / 2, "pixel", t('ok'), 32)
       .setOrigin(0.5);
 
     const okZone = this.add
-      .zone(W - 180, H / 2 - 25, 160, 50)
+      .zone(W - 190, H / 2 - 50, 160, 100)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
     okZone.on("pointerover",  () => this._drawOkBtn(true));
@@ -253,22 +256,31 @@ class UIScene extends Phaser.Scene {
 
     // Close button
     this._journalCloseBg = this.add.graphics().setDepth(201).setVisible(false);
-    this._journalCloseTxt = this.add.bitmapText(W - 50, UI_HEIGHT + headerH / 2, 'pixel', t('journal_close'), 16).setOrigin(0.5).setDepth(202).setVisible(false);
+    this._journalCloseTxt = this.add.bitmapText(W - 80, UI_HEIGHT + headerH / 2, 'pixel', t('journal_close'), 16).setOrigin(0.5).setDepth(202).setVisible(false);
     this._drawJournalCloseBtn(false);
 
-    const closeZone = this.add.zone(W - 80, UI_HEIGHT + 10, 60, 40)
+    const closeZone = this.add.zone(W - 140, UI_HEIGHT + 10, 120, 40)
       .setOrigin(0).setDepth(202).setInteractive({ useHandCursor: true }).setVisible(false);
     this._journalCloseZone = closeZone;
     closeZone.on('pointerover',  () => this._drawJournalCloseBtn(true));
     closeZone.on('pointerout',   () => this._drawJournalCloseBtn(false));
     closeZone.on('pointerdown',  () => this._closeJournal());
+
+    // Scrollable container for entries
+    this._journalContentY = UI_HEIGHT + 68;
+    this._journalScrollY  = 0;
+    this._journalContentH = 0;
+    this._journalContainer = this.add.container(0, this._journalContentY).setDepth(202).setVisible(false);
+    const maskShape = this.add.graphics();
+    maskShape.fillRect(0, this._journalContentY, GAME_WIDTH, GAME_HEIGHT - this._journalContentY);
+    this._journalContainer.setMask(maskShape.createGeometryMask());
   }
 
   _drawJournalCloseBtn(hovered) {
     const W = GAME_WIDTH, headerH = 60;
     this._journalCloseBg.clear();
     this._journalCloseBg.fillStyle(hovered ? 0x666666 : 0x333333, 1);
-    this._journalCloseBg.fillRoundedRect(W - 80, UI_HEIGHT + 10, 60, 40, 4);
+    this._journalCloseBg.fillRoundedRect(W - 140, UI_HEIGHT + 10, 120, 40, 4);
   }
 
   _openJournal() {
@@ -280,9 +292,17 @@ class UIScene extends Phaser.Scene {
     this._journalCloseBg.setVisible(true);
     this._journalCloseTxt.setVisible(true);
     this._journalCloseZone.setVisible(true).setInteractive({ useHandCursor: true });
+    this._journalContainer.setVisible(true);
     this._drawButton(this._btnJournal, false, true);
     this.scene.pause('GameScene');
     this._refreshJournalEntries();
+    this._journalWheelHandler = (_pointer, _gameObjects, _deltaX, deltaY) => {
+      const visH = GAME_HEIGHT - this._journalContentY;
+      const maxScroll = Math.max(0, this._journalContentH - visH);
+      this._journalScrollY = Phaser.Math.Clamp(this._journalScrollY + deltaY * 0.5, 0, maxScroll);
+      this._journalContainer.y = this._journalContentY - this._journalScrollY;
+    };
+    this.input.on('wheel', this._journalWheelHandler);
   }
 
   _closeJournal() {
@@ -294,41 +314,48 @@ class UIScene extends Phaser.Scene {
     this._journalCloseBg.setVisible(false);
     this._journalCloseTxt.setVisible(false);
     this._journalCloseZone.setVisible(false).removeInteractive();
+    this._journalContainer.setVisible(false);
+    this.input.off('wheel', this._journalWheelHandler);
     this._drawButton(this._btnJournal, false, false);
     this._clearJournalEntries();
     this.scene.resume('GameScene');
   }
 
   _clearJournalEntries() {
-    for (const entry of this._journalEntries) entry.destroy();
+    this._journalContainer.removeAll(true);
     this._journalEntries = [];
   }
 
   _refreshJournalEntries() {
     this._clearJournalEntries();
+    this._journalScrollY = 0;
+    this._journalContainer.y = this._journalContentY;
     const now = this.time.now;
-    const lineH   = 40; // height per text line (px) — 32px font needs ~40px
-    const entryGap = 16; // extra spacing between entries
-    let currentY = UI_HEIGHT + 68;
+    const lineH    = 40;
+    const entryGap = 16;
+    let currentY = 20;
 
     if (this.alertHistory.length === 0) {
-      const emptyTxt = this.add.bitmapText(GAME_WIDTH / 2, currentY + 20, 'pixel', t('journal_empty'), 32).setTint(0x555555).setOrigin(0.5, 0).setDepth(202);
+      const emptyTxt = this.add.bitmapText(GAME_WIDTH / 2, currentY, 'pixel', t('journal_empty'), 32).setTint(0x555555).setOrigin(0.5, 0);
+      this._journalContainer.add(emptyTxt);
       this._journalEntries.push(emptyTxt);
+      this._journalContentH = currentY + lineH;
       return;
     }
 
     for (let i = 0; i < this.alertHistory.length; i++) {
-      if (currentY >= GAME_HEIGHT - 20) break;
       const e = this.alertHistory[i];
       const elapsed = Math.floor((now - e.time) / 1000);
       const timeStr = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m`;
       const text = `[${timeStr}]  ${e.text}`;
       const entry = this.add.bitmapText(40, currentY, 'pixel', text, 32)
-        .setTint(i === 0 ? 0xffffff : 0x888888).setDepth(202);
+        .setTint(i === 0 ? 0xffffff : 0x888888);
+      this._journalContainer.add(entry);
       this._journalEntries.push(entry);
       const linesCount = e.text.split('\n').length;
       currentY += linesCount * lineH + entryGap;
     }
+    this._journalContentH = currentY;
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────────
@@ -500,7 +527,7 @@ class UIScene extends Phaser.Scene {
           this._journalCloseBg.setVisible(true);
           this._journalCloseTxt.setVisible(true);
           this._journalCloseZone.setVisible(true);
-          for (const e of this._journalEntries) e.setVisible(true);
+          this._journalContainer.setVisible(true);
           this._journalWasOpen = false;
         }
         if (this._settingsWasOpen) {
@@ -533,7 +560,7 @@ class UIScene extends Phaser.Scene {
       this._journalCloseBg.setVisible(false);
       this._journalCloseTxt.setVisible(false);
       this._journalCloseZone.setVisible(false);
-      for (const e of this._journalEntries) e.setVisible(false);
+      this._journalContainer.setVisible(false);
     }
     if (this._settingsPanel.visible) {
       this._settingsWasOpen = true;
@@ -554,7 +581,7 @@ class UIScene extends Phaser.Scene {
     const W = GAME_WIDTH, H = 220;
     this._okBg.clear();
     this._okBg.fillStyle(hovered ? 0x666666 : 0x444444, 1);
-    this._okBg.fillRoundedRect(W - 180, H / 2 - 25, 160, 50, 6);
+    this._okBg.fillRoundedRect(W - 190, H / 2 - 50, 160, 100, 6);
   }
 
   showAlert(text, warning = false) {
@@ -622,6 +649,7 @@ class UIScene extends Phaser.Scene {
       this.alertLandTriggered = false;
       this.alertReforestTriggered = false;
       this.alertWaterTriggered = false;
+      this.alertAllFullTriggered = false;
       this.scene.stop("UIScene");
       this.scene.stop("GameScene");
       this.scene.start("GameScene");
@@ -681,7 +709,11 @@ class UIScene extends Phaser.Scene {
 
     // Alerts
     if (!this.overlayOpen) {
-      if (GameState.land_health < 20 && !this.alertLandTriggered) {
+      if (GameState.land_health >= 100 && GameState.water >= 100 && GameState.community >= 100 && !this.alertAllFullTriggered) {
+        this.alertAllFullTriggered = true;
+        this.sfxCongrats.play();
+        this.showAlert(t('alert_all_full'));
+      } else if (GameState.land_health < 20 && !this.alertLandTriggered) {
         this.alertLandTriggered = true;
         this.showAlert(t('alert_land_critical'), true);
       } else if (GameState.water < 50 && !this.alertReforestTriggered) {
@@ -704,7 +736,6 @@ class UIScene extends Phaser.Scene {
     }
 
     if (GameState.land_health >= 20) this.alertLandTriggered = false;
-    if (GameState.water >= 50) this.alertReforestTriggered = false;
     if (GameState.water >= 20) this.alertWaterTriggered = false;
     if (GameState.water >= 10) this.alertWaterCriticalTriggered = false;
   }
