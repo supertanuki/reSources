@@ -32,6 +32,12 @@ class GameScene extends Phaser.Scene {
     this.waterCrisisTimer        = 0;
     this.waterCrisisTriggered    = false;
     this._communityDrainTimer    = 0;
+    this._foodTimer              = 0;
+    this._harvestCount           = 0;
+    this._firstHarvestDone       = false;
+    this._starving               = false;
+    this._starvationDrainTimer   = 0;
+    this._starvationAlertShown   = false;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -413,6 +419,7 @@ class GameScene extends Phaser.Scene {
     this.woodAlertShown = true;
     this._registerBuilding(c);
     const spawned = this._spawnPeople(c);
+    this._syncCommunity();
     const waterCost = 1 + spawned;
     this._floatLabelAtTile(c.x, c.y, -32, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
     this._floatLabelAtTile(c.x, c.y,   0, `-${waterCost}`,                   '#1a6abf');
@@ -575,6 +582,8 @@ class GameScene extends Phaser.Scene {
 
   _harvestGarden(c, g) {
     if (this.sndHarvest) this.sndHarvest.play();
+    this._harvestCount++;
+    this._firstHarvestDone = true;
     // First harvest: start music after 10s delay (only if not raining)
     if (!this.musicUnlocked && this.rain.state === 'idle') {
       this.musicUnlocked = true;
@@ -592,6 +601,7 @@ class GameScene extends Phaser.Scene {
     if (hadCapacity) {
       const spawnPos = this._randomDesertNear(c);
       this.persons.push(new Person(this, spawnPos.x, spawnPos.y));
+      this._syncCommunity();
     }
     this._floatLabelAtTile(c.x, c.y, -32, '+1', '#aa6633');
     this._floatLabelAtTile(c.x, c.y,   0, '+1', '#ffaa33');
@@ -831,13 +841,16 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  _syncCommunity() {
+    GameState.community = Math.min(100, this.persons.length);
+  }
+
   // ── Update ───────────────────────────────────────────────────────────────────
 
   update(_, delta) {
     const dt = delta / 1000;
 
-    // Community = number of persons, max 100
-    GameState.community = Math.min(100, this.persons.length);
+    this._syncCommunity();
 
     // Water regen (+1 every 30s) → hidden indicator
     this.waterRegenTimer += dt;
@@ -887,16 +900,51 @@ class GameScene extends Phaser.Scene {
     // Community drain: -1 person every 10s when water < 20%
     if (GameState.water < 20 && this.persons.length > 0) {
       this._communityDrainTimer += dt;
-      if (this._communityDrainTimer >= 5) {
+      if (this._communityDrainTimer >= 10) {
         this._communityDrainTimer = 0;
         const idx = Math.floor(Math.random() * this.persons.length);
         const person = this.persons[idx];
         this._floatLabel(person.x, person.y, '-1', '#000000');
         person.destroy();
         this.persons.splice(idx, 1);
+        this._syncCommunity();
       }
     } else {
       this._communityDrainTimer = 0;
+    }
+
+    // Starvation: need 1 harvest per 10 persons every 30s (only after first harvest)
+    if (this._firstHarvestDone && this.persons.length > 0) {
+      this._foodTimer += dt;
+      if (this._foodTimer >= 30) {
+        this._foodTimer = 0;
+        const required = Math.ceil(this.persons.length / 10);
+        this._starving = this._harvestCount < required;
+        this._harvestCount = 0;
+      }
+      if (this._starving) {
+        this._starvationDrainTimer += dt;
+        if (this._starvationDrainTimer >= 5) {
+          this._starvationDrainTimer = 0;
+          const idx = Math.floor(Math.random() * this.persons.length);
+          const person = this.persons[idx];
+          this._floatLabel(person.x, person.y, '-1', '#000000');
+          person.destroy();
+          this.persons.splice(idx, 1);
+          this._syncCommunity();
+          if (!this._starvationAlertShown) {
+            this._starvationAlertShown = true;
+            const ui = this.scene.get('UIScene');
+            if (ui) ui.showAlert(t('alert_starvation'), true);
+          }
+        }
+      } else {
+        this._starvationDrainTimer = 0;
+      }
+    } else {
+      this._starving = false;
+      this._starvationDrainTimer = 0;
+      if (!this._firstHarvestDone) this._foodTimer = 0;
     }
 
     this._updateRain(dt);
