@@ -88,8 +88,9 @@ class UIScene extends Phaser.Scene {
     this._btnBuild    = this._makeButton(890,  12, 140, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD));
     this._btnFarm     = this._makeButton(1045, 12, 140, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false);
     this._btnReforest = this._makeButton(1200, 12, 140, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false);
-    this._btnJournal  = this._makeButton(1505, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
-    this._btnSettings = this._makeButton(1620, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
+    this._btnBasin    = this._makeButton(1355, 12, 150, t('btn_basin'),   () => this._setAction(GameState.ACTION_BASIN), false);
+    this._btnJournal  = this._makeButton(1520, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
+    this._btnSettings = this._makeButton(1630, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
 
     // Alert count badge — placed right of "JOURNAL" text, vertically aligned
     const _jTxt = this._btnJournal.txt;
@@ -106,8 +107,10 @@ class UIScene extends Phaser.Scene {
 
     this.farmUnlocked     = GameState.uiFarmUnlocked;
     this.reforestUnlocked = GameState.uiReforestUnlocked;
+    this.basinUnlocked    = GameState.uiBasinUnlocked;
     if (this.farmUnlocked)     this._setBtnVisible(this._btnFarm,     true);
     if (this.reforestUnlocked) this._setBtnVisible(this._btnReforest, true);
+    if (this.basinUnlocked)    this._setBtnVisible(this._btnBasin,    true);
 
     this._refreshButtons();
   }
@@ -195,6 +198,11 @@ class UIScene extends Phaser.Scene {
     if (this.reforestUnlocked) {
       this._btnReforest.txt.setText(`${t('btn_plant')}\n${GameState.wood}/1 ${wu}`);
       this._drawButton(this._btnReforest, GameState.current_action === GameState.ACTION_REFOREST, !canReforest);
+    }
+    if (this.basinUnlocked) {
+      const canBasin = GameState.wood >= GameState.BASIN_WOOD_COST;
+      this._btnBasin.txt.setText(`${t('btn_basin')}\n${GameState.wood}/${GameState.BASIN_WOOD_COST} ${wu}`);
+      this._drawButton(this._btnBasin, GameState.current_action === GameState.ACTION_BASIN, !canBasin);
     }
   }
 
@@ -541,7 +549,7 @@ class UIScene extends Phaser.Scene {
     if (on) {
       this._setPictureHideOverlays();
       // Remember which buttons were actually visible
-      const btns = [this._btnBuild, this._btnFarm, this._btnReforest, this._btnJournal, this._btnSettings, this._btnPicture];
+      const btns = [this._btnBuild, this._btnFarm, this._btnReforest, this._btnBasin, this._btnJournal, this._btnSettings, this._btnPicture];
       this._pictureHiddenBtns = btns.filter(btn => btn.txt.visible);
       for (const btn of this._pictureHiddenBtns) {
         if (!btn.textOnly) btn.bg.setVisible(false);
@@ -795,6 +803,12 @@ class UIScene extends Phaser.Scene {
       this.farmUnlocked = true;
       GameState.uiFarmUnlocked = true;
       this._setBtnVisible(this._btnFarm, true);
+    }
+    if (!this.basinUnlocked && GameState.water < 25) {
+      this.basinUnlocked = true;
+      GameState.uiBasinUnlocked = true;
+      this._setBtnVisible(this._btnBasin, true);
+      this.showAlert(t('alert_basin_unlock'), true);
     }
 
     // Alerts

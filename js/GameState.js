@@ -5,12 +5,15 @@ const GameState = {
   TILE_WATER: 2,
   TILE_BUILDING: 3,
   TILE_FARM: 4,
+  TILE_BASIN: 5,
 
   BUILDING_WOOD_COST: 5,
+  BASIN_WOOD_COST: 20,
 
   ACTION_BUILD: 0,
   ACTION_REFOREST: 1,
   ACTION_FARM: 2,
+  ACTION_BASIN: 3,
 
   MAP_WIDTH: 60,
   MAP_HEIGHT: 32,
@@ -28,6 +31,7 @@ const GameState = {
   alertHistory: [],
   uiFarmUnlocked: false,
   uiReforestUnlocked: false,
+  uiBasinUnlocked: false,
 
   tiles: [],
 
@@ -78,6 +82,7 @@ const GameState = {
     this.alertHistory = [];
     this.uiFarmUnlocked = false;
     this.uiReforestUnlocked = false;
+    this.uiBasinUnlocked = false;
     this.initTiles();
   },
 };

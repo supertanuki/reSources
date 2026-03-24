@@ -23,6 +23,7 @@ class GameScene extends Phaser.Scene {
     this.treesCut              = 0;
     this.growingTrees          = [];
     this.gardens               = [];
+    this.basins                = []; // { x, y, full: bool, timer: number }
     this.gardenReadyAlertShown   = false;
     this.gardenHarvestAlertShown = false;
     this.farmLimitAlertShown     = false;
@@ -223,6 +224,10 @@ class GameScene extends Phaser.Scene {
                this.gardens.length < this.persons.length &&
                GameState.wood >= 1) {
       preview = 11; // gid 11 = garden stage 1
+    } else if (act === GameState.ACTION_BASIN &&
+               td.biome === GameState.TILE_DESERT && !td.building &&
+               GameState.wood >= GameState.BASIN_WOOD_COST) {
+      preview = 9; // gid 9 = empty basin (col=3, row=1)
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
       if (g && g.stage === 2) {
@@ -266,6 +271,9 @@ class GameScene extends Phaser.Scene {
     } else if (act === GameState.ACTION_FARM && td.biome === GameState.TILE_DESERT && !td.building) {
       this._dragIntent = 'place_farm';
       this._placeFarm(c, td);
+    } else if (act === GameState.ACTION_BASIN && td.biome === GameState.TILE_DESERT && !td.building) {
+      this._dragIntent = 'place_basin';
+      this._placeBasin(c, td);
     } else if (td.biome === GameState.TILE_FARM) {
       const g = this._getGarden(c.x, c.y);
       if (g && g.stage === 2) {
@@ -301,6 +309,9 @@ class GameScene extends Phaser.Scene {
     } else if (intent === 'place_farm') {
       if (td.biome === GameState.TILE_DESERT && !td.building)
         this._placeFarm(c, td);
+    } else if (intent === 'place_basin') {
+      if (td.biome === GameState.TILE_DESERT && !td.building && GameState.wood >= GameState.BASIN_WOOD_COST)
+        this._placeBasin(c, td);
     } else if (intent === 'replant_garden') {
       if (td.biome === GameState.TILE_FARM) {
         const g = this._getGarden(c.x, c.y);
@@ -397,6 +408,16 @@ class GameScene extends Phaser.Scene {
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.gardenPlaced = true;
     this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
+  }
+
+  _placeBasin(c, td) {
+    if (GameState.wood < GameState.BASIN_WOOD_COST) return;
+    if (this.sndPlaceTile) this.sndPlaceTile.play();
+    GameState.wood -= GameState.BASIN_WOOD_COST;
+    td.biome = GameState.TILE_BASIN;
+    this.biomeLayer.putTileAt(9, c.x, c.y); // gid 9 = empty basin (col=3, row=1)
+    this.basins.push({ x: c.x, y: c.y, full: false, timer: 0 });
+    this._floatLabelAtTile(c.x, c.y, 0, `-${GameState.BASIN_WOOD_COST}`, '#aa6633');
   }
 
   _tryBuild(c, td) {
@@ -636,6 +657,20 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ── Basins ───────────────────────────────────────────────────────────────────
+
+  _updateBasins(dt) {
+    for (const b of this.basins) {
+      if (!b.full) continue;
+      b.timer += dt;
+      if (b.timer >= 10) {
+        b.timer -= 10;
+        GameState.changeWaterHidden(1);
+        this._floatLabelAtTile(b.x, b.y, 0, '+1', '#1a6abf');
+      }
+    }
+  }
+
   // ── Tree growth ──────────────────────────────────────────────────────────────
 
   _updateGrowingTrees(dt) {
@@ -808,7 +843,17 @@ class GameScene extends Phaser.Scene {
         GameState.changeWaterHidden(1);
         r.gainGiven++;
       }
-      if (r.phaseTimer >= r.duration) { r.state = 'fadeout'; r.phaseTimer = 0; }
+      if (r.phaseTimer >= r.duration) {
+        r.state = 'fadeout';
+        r.phaseTimer = 0;
+        // Fill all basins as the rain ends
+        for (const b of this.basins) {
+          if (!b.full) {
+            b.full = true;
+            this.biomeLayer.putTileAt(10, b.x, b.y); // gid 10 = full basin (col=4, row=1)
+          }
+        }
+      }
 
     } else if (r.state === 'fadeout') {
       intensity = Math.max(1 - r.phaseTimer / FADE, 0);
@@ -984,6 +1029,7 @@ class GameScene extends Phaser.Scene {
     this._updateRain(dt);
     this._updateGrowingTrees(dt);
     this._updateGardens(dt);
+    this._updateBasins(dt);
 
     for (const p of this.persons) p.update(delta);
   }
