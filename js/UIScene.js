@@ -239,6 +239,19 @@ class UIScene extends Phaser.Scene {
     });
 
     this.alertPopup.add([bg, this.alertLabel, this._okBg, this._okTxt, okZone]);
+
+    this.input.keyboard.on('keydown-SPACE', () => {
+      if (this.alertPopup.visible) {
+        this.sfxButton.play();
+        this.tweens.killTweensOf([this._okBg, this._okTxt]);
+        this._okBg.setAlpha(1);
+        this._okTxt.setAlpha(1);
+        this._alertGradient.setVisible(false);
+        this.alertPopup.setVisible(false);
+        this.overlayOpen = false;
+        this.scene.resume("GameScene");
+      }
+    });
   }
 
   // ── Journal ──────────────────────────────────────────────────────────────────
