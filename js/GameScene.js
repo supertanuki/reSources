@@ -162,6 +162,9 @@ class GameScene extends Phaser.Scene {
     } while (this.waterCells.length < MIN_WATER);
 
     this.initialWaterCount = this.waterCells.length;
+
+    // Apply border-aware GIDs to all water tiles
+    for (const { x, y } of this.waterCells) this._refreshWaterTile(x, y);
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
@@ -514,6 +517,37 @@ class GameScene extends Phaser.Scene {
   }
 
   // ── Water drain ─────────────────────────────────────────────────────────────
+
+  // ── Water border tiles ───────────────────────────────────────────────────────
+
+  _waterTileGid(x, y) {
+    const L = x > 0                       && GameState.tiles[y][x-1].biome === GameState.TILE_WATER;
+    const R = x < GameState.MAP_WIDTH-1   && GameState.tiles[y][x+1].biome === GameState.TILE_WATER;
+    const T = y > 0                       && GameState.tiles[y-1][x].biome === GameState.TILE_WATER;
+    const B = y < GameState.MAP_HEIGHT-1  && GameState.tiles[y+1][x].biome === GameState.TILE_WATER;
+    const k = (L?8:0)|(R?4:0)|(T?2:0)|(B?1:0);
+    //         0      1      2      3      4      5      6      7
+    const G = [[16,0],[19,0],[21,0],[20,0],[18,0],[23,0],[22,0],[28,0],
+    //         8      9      10     11     12     13     14     15
+               [18,1],[23,1],[22,1],[28,1],[30,0],[27,0],[26,0],[17,0]];
+    return G[k];
+  }
+
+  _refreshWaterTile(x, y) {
+    if (x < 0 || y < 0 || x >= GameState.MAP_WIDTH || y >= GameState.MAP_HEIGHT) return;
+    if (GameState.tiles[y][x].biome !== GameState.TILE_WATER) return;
+    const [gid, fx] = this._waterTileGid(x, y);
+    const tile = this.biomeLayer.putTileAt(gid, x, y);
+    if (tile) tile.flipX = !!fx;
+  }
+
+  _refreshWaterNeighbors(x, y) {
+    this._refreshWaterTile(x,   y);
+    this._refreshWaterTile(x-1, y);
+    this._refreshWaterTile(x+1, y);
+    this._refreshWaterTile(x,   y-1);
+    this._refreshWaterTile(x,   y+1);
+  }
 
   _desertTileAdjacentToWater() {
     const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
@@ -950,13 +984,18 @@ class GameScene extends Phaser.Scene {
             GameState.tiles[tile.y][tile.x].biome = GameState.TILE_DESERT;
             this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_DESERT), tile.x, tile.y);
             this.waterCells = this.waterCells.filter(c => !(c.x === tile.x && c.y === tile.y));
+            // Refresh borders on the 4 neighbors now adjacent to desert
+            this._refreshWaterTile(tile.x-1, tile.y);
+            this._refreshWaterTile(tile.x+1, tile.y);
+            this._refreshWaterTile(tile.x,   tile.y-1);
+            this._refreshWaterTile(tile.x,   tile.y+1);
           }
         } else if (this.waterCells.length < target) {
           const tile = this._desertTileAdjacentToWater();
           if (tile) {
             GameState.tiles[tile.y][tile.x].biome = GameState.TILE_WATER;
-            this.biomeLayer.putTileAt(GameState.toPhaserId(GameState.TILE_WATER), tile.x, tile.y);
             this.waterCells.push({ x: tile.x, y: tile.y });
+            this._refreshWaterNeighbors(tile.x, tile.y);
           }
         }
         // Visible indicator = exact reflection of current tile count
