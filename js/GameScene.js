@@ -385,13 +385,13 @@ class GameScene extends Phaser.Scene {
     if (GameState.wood < 1) return;
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
-    GameState.changeWaterHidden(-2);
+    GameState.changeWaterHidden(-1);
     td.biome = GameState.TILE_FARM;
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.gardenPlaced = true;
     this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
-    this._floatLabelAtTile(c.x, c.y, +20, '-2', '#1a6abf');
+    this._floatLabelAtTile(c.x, c.y, +20, '-1', '#1a6abf');
   }
 
   _tryBuild(c, td) {
@@ -624,8 +624,8 @@ class GameScene extends Phaser.Scene {
     g.stage = 0;
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
-    GameState.changeWaterHidden(-2);
-    this._floatLabelAtTile(c.x, c.y, 0, '-2', '#1a6abf');
+    GameState.changeWaterHidden(-1);
+    this._floatLabelAtTile(c.x, c.y, 0, '-1', '#1a6abf');
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
@@ -711,7 +711,7 @@ class GameScene extends Phaser.Scene {
     this.rain.started       = true;
     this.rain.lightningTimer = 0;
     this.rain.lightningDelay = 3 + Math.random() * 5; // first strike 3–8 s into active
-    this.rain.totalGain     = Math.round(10 + ((this.rain.duration - 30) / 30) * 10); // 10–20 pts
+    this.rain.totalGain     = Math.round(15 + ((this.rain.duration - 30) / 30) * 15); // 15–30 pts
     this.rain.gainGiven     = 0;
     this.rain.gainTimer     = 0;
     this.rain.gainInterval  = this.rain.duration / this.rain.totalGain;
@@ -919,7 +919,7 @@ class GameScene extends Phaser.Scene {
       this._foodTimer += dt;
       if (this._foodTimer >= 30) {
         this._foodTimer = 0;
-        const required = Math.ceil(this.persons.length / 10);
+        const required = Math.ceil(this.persons.length / 20);
         this._starving = this._harvestCount < required;
         this._harvestCount = 0;
       }
