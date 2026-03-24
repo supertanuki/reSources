@@ -74,7 +74,9 @@ class GameScene extends Phaser.Scene {
     this.sndBuild = this.sndCuttingTree = this.sndPlaceTile = this.sndHarvest = null;
     this._musicLoopTimer = null;
     this._desertLoopTimer = null;
-    this._waterMusicState = null; // 'normal' | 'desert'
+    this._waterMusicState = null;   // 'normal' | 'desert'
+    this._musicSwitchTimer = null;  // pending 30s debounce timer
+    this._pendingMusicSwitch = null; // 'normal' | 'desert'
     this.sndWind = this.sound.add('sfx-wind', { loop: true, volume: 2 });
     this.sndWind.play();
     this.load.audio('sfx-rain',         'sfx/sfx-rain.mp3');
@@ -654,8 +656,10 @@ class GameScene extends Phaser.Scene {
     if (this.sndRain        && this.sndRain.isPlaying)        this._fadeSound(this.sndRain,        0, duration);
     if (this.sndMusic       && this.sndMusic.isPlaying)       this._fadeSound(this.sndMusic,       0, duration);
     if (this.sndMusicDesert && this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, duration);
-    if (this._musicLoopTimer)  { this._musicLoopTimer.remove();  this._musicLoopTimer  = null; }
-    if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
+    if (this._musicLoopTimer)   { this._musicLoopTimer.remove();   this._musicLoopTimer   = null; }
+    if (this._desertLoopTimer)  { this._desertLoopTimer.remove();  this._desertLoopTimer  = null; }
+    if (this._musicSwitchTimer) { this._musicSwitchTimer.remove(); this._musicSwitchTimer = null; }
+    this._pendingMusicSwitch = null;
     this._waterMusicState = null;
   }
 
@@ -680,24 +684,43 @@ class GameScene extends Phaser.Scene {
     const isRaining = this.rain && this.rain.state !== 'idle';
     if (isRaining) return;
 
-    const wantDesert = GameState.water < 20;
+    const wantState = GameState.water < 20 ? 'desert' : 'normal';
 
-    if (wantDesert && this._waterMusicState !== 'desert') {
-      this._waterMusicState = 'desert';
+    // Already playing the right track — cancel any pending switch away from it
+    if (this._waterMusicState === wantState) {
+      if (this._musicSwitchTimer && this._pendingMusicSwitch !== wantState) {
+        this._musicSwitchTimer.remove();
+        this._musicSwitchTimer = null;
+        this._pendingMusicSwitch = null;
+      }
+      return;
+    }
+
+    // A switch is needed — debounce 30s
+    if (this._pendingMusicSwitch === wantState) return; // already scheduled
+
+    if (this._musicSwitchTimer) { this._musicSwitchTimer.remove(); this._musicSwitchTimer = null; }
+    this._pendingMusicSwitch = wantState;
+    this._musicSwitchTimer = this.time.delayedCall(30000, () => {
+      this._musicSwitchTimer = null;
+      this._pendingMusicSwitch = null;
+      // Only switch if water is still on the same side of 20%
+      if ((GameState.water < 20) === (wantState === 'desert')) {
+        this._doMusicSwitch(wantState);
+      }
+    });
+  }
+
+  _doMusicSwitch(state) {
+    this._waterMusicState = state;
+    if (state === 'desert') {
       if (this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 2000);
       if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
-      if (!this.sndMusicDesert.isPlaying) {
-        this.sndMusicDesert.setVolume(0.1);
-        this.sndMusicDesert.play();
-      }
-    } else if (!wantDesert && this._waterMusicState !== 'normal') {
-      this._waterMusicState = 'normal';
+      if (!this.sndMusicDesert.isPlaying) { this.sndMusicDesert.setVolume(0.1); this.sndMusicDesert.play(); }
+    } else {
       if (this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, 2000);
       if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
-      if (!this.sndMusic.isPlaying) {
-        this.sndMusic.setVolume(0.1);
-        this.sndMusic.play();
-      }
+      if (!this.sndMusic.isPlaying) { this.sndMusic.setVolume(0.1); this.sndMusic.play(); }
     }
   }
 
@@ -719,8 +742,10 @@ class GameScene extends Phaser.Scene {
     // Audio: fade out music only (wind stays), fade in rain
     if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
     if (this.sndMusicDesert && this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, 3000);
-    if (this._musicLoopTimer)  { this._musicLoopTimer.remove();  this._musicLoopTimer  = null; }
-    if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
+    if (this._musicLoopTimer)   { this._musicLoopTimer.remove();   this._musicLoopTimer   = null; }
+    if (this._desertLoopTimer)  { this._desertLoopTimer.remove();  this._desertLoopTimer  = null; }
+    if (this._musicSwitchTimer) { this._musicSwitchTimer.remove(); this._musicSwitchTimer = null; }
+    this._pendingMusicSwitch = null;
     this._waterMusicState = null; // reset so _updateMusicTrack() redémarre après la pluie
     this.sndRain.setVolume(0);
     if (!this.sndRain.isPlaying) this.sndRain.play();
