@@ -897,10 +897,11 @@ class GameScene extends Phaser.Scene {
       if (isRaining) this.waterCrisisTriggered = false;
     }
 
-    // Community drain: -1 person every 10s when water < 20%
+    // Community drain: -1 person every 20s when water < 10%, every 10s when water < 20%
     if (GameState.water < 20 && this.persons.length > 0) {
+      const waterDrainInterval = GameState.water < 10 ? 20 : 10;
       this._communityDrainTimer += dt;
-      if (this._communityDrainTimer >= 10) {
+      if (this._communityDrainTimer >= waterDrainInterval) {
         this._communityDrainTimer = 0;
         const idx = Math.floor(Math.random() * this.persons.length);
         const person = this.persons[idx];
@@ -924,7 +925,7 @@ class GameScene extends Phaser.Scene {
       }
       if (this._starving) {
         this._starvationDrainTimer += dt;
-        if (this._starvationDrainTimer >= 5) {
+        if (this._starvationDrainTimer >= 10) {
           this._starvationDrainTimer = 0;
           const idx = Math.floor(Math.random() * this.persons.length);
           const person = this.persons[idx];
