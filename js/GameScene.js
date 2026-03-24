@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png?v4', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v5', { frameWidth: 32, frameHeight: 32 });
     this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
@@ -31,6 +31,7 @@ class GameScene extends Phaser.Scene {
     this.gardenBlinkOn           = true;
     this.waterCrisisTimer        = 0;
     this.waterCrisisTriggered    = false;
+    this._communityDrainTimer    = 0;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -406,7 +407,6 @@ class GameScene extends Phaser.Scene {
     const buildTile = this.biomeLayer.putTileAt(pending.gid, c.x, c.y);
     if (buildTile) buildTile.flipX = pending.flipX;
     this._pendingBuild = null;
-    GameState.changeCommunity(2);
     GameState.changeWaterHidden(-1);
     const firstBuilding = this.buildingCells.length === 0;
     if (firstBuilding) GameState.shelterBuilt = true;
@@ -587,9 +587,8 @@ class GameScene extends Phaser.Scene {
     this.biomeLayer.putTileAt(14, c.x, c.y); // gid 14 = harvested
     this.previewLayer.removeTileAt(c.x, c.y);
     this.lastPreviewCell = null;
-    GameState.changeCommunity(1);
     GameState.wood += 1;
-    const hadCapacity = this.persons.length < this.buildingCells.length * 4;
+    const hadCapacity = this.persons.length < this.buildingCells.length * 4 && GameState.water >= 20;
     if (hadCapacity) {
       const spawnPos = this._randomDesertNear(c);
       this.persons.push(new Person(this, spawnPos.x, spawnPos.y));
@@ -837,6 +836,9 @@ class GameScene extends Phaser.Scene {
   update(_, delta) {
     const dt = delta / 1000;
 
+    // Community = number of persons, max 100
+    GameState.community = Math.min(100, this.persons.length);
+
     // Water regen (+1 every 30s) → hidden indicator
     this.waterRegenTimer += dt;
     if (this.waterRegenTimer >= 30) {
@@ -880,6 +882,21 @@ class GameScene extends Phaser.Scene {
     } else {
       this.waterCrisisTimer = 0;
       if (isRaining) this.waterCrisisTriggered = false;
+    }
+
+    // Community drain: -1 person every 10s when water < 20%
+    if (GameState.water < 20 && this.persons.length > 0) {
+      this._communityDrainTimer += dt;
+      if (this._communityDrainTimer >= 5) {
+        this._communityDrainTimer = 0;
+        const idx = Math.floor(Math.random() * this.persons.length);
+        const person = this.persons[idx];
+        this._floatLabel(person.x, person.y, '-1', '#000000');
+        person.destroy();
+        this.persons.splice(idx, 1);
+      }
+    } else {
+      this._communityDrainTimer = 0;
     }
 
     this._updateRain(dt);

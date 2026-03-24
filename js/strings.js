@@ -46,8 +46,9 @@ const STRINGS = {
 
     // Alert / Game Over
     ok:            'OK',
-    game_over_land:  "Game Over!\nThe land health has collapsed.",
-    game_over_water: "Game Over!\nThe region is experiencing\na water crisis.",
+    game_over_land:      "Game Over!\nThe land health has collapsed.",
+    game_over_water:     "Game Over!\nThe region is experiencing\na water crisis.",
+    game_over_community: "Game Over.\nYour community has died out.",
     replay:        'REPLAY',
 
     // In-game alerts
@@ -102,8 +103,9 @@ const STRINGS = {
 
     // Alert / Game Over
     ok:            'OK',
-    game_over_land:  "Partie terminée !\nLa santé des sols s'est effondrée.",
-    game_over_water: "Partie terminée !\nLa région traverse\nune crise de l'eau.",
+    game_over_land:      "Partie terminée !\nLa santé des sols s'est effondrée.",
+    game_over_water:     "Partie terminée !\nLa région traverse\nune crise hydrique sévère.",
+    game_over_community: "Partie terminée.\nVotre communauté s'est éteinte.",
     replay:        'REJOUER',
 
     // In-game alerts

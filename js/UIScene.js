@@ -676,7 +676,8 @@ class UIScene extends Phaser.Scene {
     // Game Over
     const gameScene = this.scene.get("GameScene");
     const noWaterTiles = gameScene && gameScene.waterCrisisTriggered;
-    if (GameState.land_health === 0 || noWaterTiles) {
+    const communityCollapsed = GameState.shelterBuilt && GameState.community <= 0;
+    if (GameState.land_health === 0 || noWaterTiles || communityCollapsed) {
       this.gameOver = true;
       this.overlayOpen = true;
       if (gameScene) {
@@ -692,7 +693,9 @@ class UIScene extends Phaser.Scene {
       this.gameOverLabel.setText(
         GameState.land_health === 0
           ? t('game_over_land')
-          : t('game_over_water'),
+          : communityCollapsed
+            ? t('game_over_community')
+            : t('game_over_water'),
       );
       this.sfxWarning.play();
       this.gameOverPopup.setVisible(true);
