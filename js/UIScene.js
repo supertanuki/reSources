@@ -555,12 +555,16 @@ class UIScene extends Phaser.Scene {
         if (!btn.textOnly) btn.bg.setVisible(false);
         btn.txt.setVisible(false);
       }
+      this._journalBadgeBg.setVisible(false);
+      this._journalBadgeTxt.setVisible(false);
     } else {
       for (const btn of (this._pictureHiddenBtns || [])) {
         if (!btn.textOnly) btn.bg.setVisible(true);
         btn.txt.setVisible(true);
       }
       this._pictureHiddenBtns = [];
+      this._journalBadgeBg.setVisible(true);
+      this._journalBadgeTxt.setVisible(true);
     }
   }
 
