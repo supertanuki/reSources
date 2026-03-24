@@ -709,7 +709,10 @@ class GameScene extends Phaser.Scene {
 
     // Audio: fade out music only (wind stays), fade in rain
     if (this.sndMusic && this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 3000);
-    if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
+    if (this.sndMusicDesert && this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, 3000);
+    if (this._musicLoopTimer)  { this._musicLoopTimer.remove();  this._musicLoopTimer  = null; }
+    if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
+    this._waterMusicState = null; // reset so _updateMusicTrack() redémarre après la pluie
     this.sndRain.setVolume(0);
     if (!this.sndRain.isPlaying) this.sndRain.play();
     this._fadeSound(this.sndRain, 0.5, 3000);
