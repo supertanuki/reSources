@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png?v5', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v7', { frameWidth: 32, frameHeight: 32 });
     this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
@@ -696,12 +696,12 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    // A switch is needed — debounce 30s
+    // A switch is needed — debounce 15s
     if (this._pendingMusicSwitch === wantState) return; // already scheduled
 
     if (this._musicSwitchTimer) { this._musicSwitchTimer.remove(); this._musicSwitchTimer = null; }
     this._pendingMusicSwitch = wantState;
-    this._musicSwitchTimer = this.time.delayedCall(30000, () => {
+    this._musicSwitchTimer = this.time.delayedCall(15000, () => {
       this._musicSwitchTimer = null;
       this._pendingMusicSwitch = null;
       // Only switch if water is still on the same side of 20%
@@ -714,13 +714,15 @@ class GameScene extends Phaser.Scene {
   _doMusicSwitch(state) {
     this._waterMusicState = state;
     if (state === 'desert') {
-      if (this.sndMusic.isPlaying) this._fadeSound(this.sndMusic, 0, 2000);
       if (this._musicLoopTimer) { this._musicLoopTimer.remove(); this._musicLoopTimer = null; }
-      if (!this.sndMusicDesert.isPlaying) { this.sndMusicDesert.setVolume(0.1); this.sndMusicDesert.play(); }
+      this._fadeSound(this.sndMusic, 0, 2000);
+      if (!this.sndMusicDesert.isPlaying) { this.sndMusicDesert.setVolume(0); this.sndMusicDesert.play(); }
+      this._fadeSound(this.sndMusicDesert, 0.2, 2000);
     } else {
-      if (this.sndMusicDesert.isPlaying) this._fadeSound(this.sndMusicDesert, 0, 2000);
       if (this._desertLoopTimer) { this._desertLoopTimer.remove(); this._desertLoopTimer = null; }
-      if (!this.sndMusic.isPlaying) { this.sndMusic.setVolume(0.1); this.sndMusic.play(); }
+      this._fadeSound(this.sndMusicDesert, 0, 2000);
+      if (!this.sndMusic.isPlaying) { this.sndMusic.setVolume(0); this.sndMusic.play(); }
+      this._fadeSound(this.sndMusic, 0.1, 2000);
     }
   }
 
