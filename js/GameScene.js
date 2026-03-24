@@ -387,13 +387,16 @@ class GameScene extends Phaser.Scene {
     if (GameState.wood < 1) return;
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
-    GameState.changeWaterHidden(-1);
+    const isRaining = this.rain && this.rain.state !== 'idle';
+    if (!isRaining) {
+      GameState.changeWaterHidden(-1);
+      this._floatLabelAtTile(c.x, c.y, +20, '-1', '#1a6abf');
+    }
     td.biome = GameState.TILE_FARM;
     this.biomeLayer.putTileAt(11, c.x, c.y); // gid 11 = garden stage 1
     this.gardens.push({ x: c.x, y: c.y, stage: 0, timer: 0 });
     GameState.gardenPlaced = true;
     this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
-    this._floatLabelAtTile(c.x, c.y, +20, '-1', '#1a6abf');
   }
 
   _tryBuild(c, td) {
@@ -626,8 +629,11 @@ class GameScene extends Phaser.Scene {
     g.stage = 0;
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
-    GameState.changeWaterHidden(-1);
-    this._floatLabelAtTile(c.x, c.y, 0, '-1', '#1a6abf');
+    const isRaining = this.rain && this.rain.state !== 'idle';
+    if (!isRaining) {
+      GameState.changeWaterHidden(-1);
+      this._floatLabelAtTile(c.x, c.y, 0, '-1', '#1a6abf');
+    }
   }
 
   // ── Tree growth ──────────────────────────────────────────────────────────────
