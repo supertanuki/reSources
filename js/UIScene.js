@@ -278,6 +278,7 @@ class UIScene extends Phaser.Scene {
 
   _buildJournalOverlay() {
     const W = GAME_WIDTH, headerH = 60, sepY = UI_HEIGHT + headerH;
+    const statsPanelX = W - 360;
 
     this._journalBg = this.add.graphics().setDepth(200).setVisible(false);
     this._journalBg.fillStyle(0x000000, 0.88);
@@ -299,14 +300,64 @@ class UIScene extends Phaser.Scene {
     closeZone.on('pointerout',   () => this._drawJournalCloseBtn(false));
     closeZone.on('pointerdown',  () => this._closeJournal());
 
-    // Scrollable container for entries
+    // Scrollable container for entries (masked to left of stats panel)
     this._journalContentY = UI_HEIGHT + 68;
     this._journalScrollY  = 0;
     this._journalContentH = 0;
     this._journalContainer = this.add.container(0, this._journalContentY).setDepth(202).setVisible(false);
     const maskShape = this.add.graphics();
-    maskShape.fillRect(0, this._journalContentY, GAME_WIDTH, GAME_HEIGHT - this._journalContentY);
+    maskShape.fillRect(0, this._journalContentY, statsPanelX - 20, GAME_HEIGHT - this._journalContentY);
     this._journalContainer.setMask(maskShape.createGeometryMask());
+
+    // Stats panel separator + content
+    this._journalStatsSep = this.add.graphics().setDepth(201).setVisible(false);
+    this._journalStatsSep.lineStyle(1, 0x444444, 1);
+    this._journalStatsSep.lineBetween(statsPanelX - 20, UI_HEIGHT + headerH, statsPanelX - 20, GAME_HEIGHT);
+
+    const statsStartY = UI_HEIGHT + headerH + 40;
+    const lineH = 48;
+    const labelX = statsPanelX;
+    const stats = [
+      t('stats_trees'),
+      t('stats_trees_cut'),
+      t('stats_trees_planted'),
+      t('stats_population'),
+      t('stats_deaths'),
+      t('stats_houses'),
+      t('stats_gardens'),
+      t('stats_harvests'),
+      t('stats_lost_harvests'),
+    ];
+    this._journalStatsLabels = [];
+    this._journalStatsValues = [];
+    for (let i = 0; i < stats.length; i++) {
+      const y = statsStartY + i * lineH;
+      const lbl = this.add.bitmapText(labelX, y, 'pixel', stats[i], 32).setTint(0xaaaaaa).setDepth(202).setVisible(false);
+      const val = this.add.bitmapText(W - 24, y, 'pixel', '0', 32).setTint(0xffffff).setOrigin(1, 0).setDepth(202).setVisible(false);
+      this._journalStatsLabels.push(lbl);
+      this._journalStatsValues.push(val);
+    }
+  }
+
+  _refreshJournalStats() {
+    const gs = this.scene.get('GameScene');
+    if (!gs) return;
+    let currentTrees = 0;
+    for (let y = 0; y < GameState.MAP_HEIGHT; y++)
+      for (let x = 0; x < GameState.MAP_WIDTH; x++)
+        if (GameState.tiles[y][x].biome === GameState.TILE_FOREST) currentTrees++;
+    const values = [
+      currentTrees,
+      gs.treesCut,
+      gs.treesPlanted,
+      gs.persons.length,
+      gs.totalDeaths,
+      gs.buildingCells.length,
+      gs.gardens.length,
+      gs.totalHarvests,
+      gs.lostHarvests,
+    ];
+    values.forEach((v, i) => this._journalStatsValues[i].setText(String(v)));
   }
 
   _drawJournalCloseBtn(hovered) {
@@ -326,6 +377,10 @@ class UIScene extends Phaser.Scene {
     this._journalCloseTxt.setVisible(true);
     this._journalCloseZone.setVisible(true).setInteractive({ useHandCursor: true });
     this._journalContainer.setVisible(true);
+    this._journalStatsSep.setVisible(true);
+    this._journalStatsLabels.forEach(l => l.setVisible(true));
+    this._journalStatsValues.forEach(v => v.setVisible(true));
+    this._refreshJournalStats();
     this._drawButton(this._btnJournal, false, true);
     this.scene.pause('GameScene');
     this._refreshJournalEntries();
@@ -348,6 +403,9 @@ class UIScene extends Phaser.Scene {
     this._journalCloseTxt.setVisible(false);
     this._journalCloseZone.setVisible(false).removeInteractive();
     this._journalContainer.setVisible(false);
+    this._journalStatsSep.setVisible(false);
+    this._journalStatsLabels.forEach(l => l.setVisible(false));
+    this._journalStatsValues.forEach(v => v.setVisible(false));
     this.input.off('wheel', this._journalWheelHandler);
     this._drawButton(this._btnJournal, false, false);
     this._clearJournalEntries();
@@ -421,6 +479,7 @@ class UIScene extends Phaser.Scene {
     langZone.on('pointerover',  () => this._drawSettingsLangBtn(true));
     langZone.on('pointerout',   () => this._drawSettingsLangBtn(false));
     langZone.on('pointerdown',  () => {
+      this.sfxButton.play();
       window._gameLang = window._gameLang === 'fr' ? 'en' : 'fr';
       this._closeSettings();
       this.scene.restart();
@@ -500,6 +559,7 @@ class UIScene extends Phaser.Scene {
   }
 
   _toggleMusic() {
+    this.sfxButton.play();
     this.musicEnabled = !this.musicEnabled;
     window._musicEnabled = this.musicEnabled;
     this._drawSettingsToggle(this._settingsBtnMusic, this.musicEnabled);
@@ -507,6 +567,7 @@ class UIScene extends Phaser.Scene {
   }
 
   _toggleSfx() {
+    this.sfxButton.play();
     this.sfxEnabled = !this.sfxEnabled;
     window._sfxEnabled = this.sfxEnabled;
     this._drawSettingsToggle(this._settingsBtnSfx, this.sfxEnabled);
@@ -514,6 +575,7 @@ class UIScene extends Phaser.Scene {
   }
 
   _toggleAlerts() {
+    this.sfxButton.play();
     this.alertsEnabled = !this.alertsEnabled;
     window._alertsEnabled = this.alertsEnabled;
     this._drawSettingsToggle(this._settingsBtnAlerts, this.alertsEnabled);
@@ -526,6 +588,30 @@ class UIScene extends Phaser.Scene {
     this._journalBadgeBg.fillStyle(0xffffff, 1);
     this._journalBadgeBg.fillCircle(this._journalBadgeX, this._journalBadgeY, this._journalBadgeR);
     this._journalBadgeTxt.setText(String(count));
+  }
+
+  _blinkJournalBadge() {
+    if (this._badgeBlinkTween) {
+      this._badgeBlinkTween.stop();
+      this._badgeBlinkTween = null;
+    }
+    this._journalBadgeBg.setAlpha(1);
+    this._journalBadgeTxt.setAlpha(1);
+    this._badgeBlinkTween = this.tweens.add({
+      targets: [this._journalBadgeBg, this._journalBadgeTxt],
+      alpha: 0,
+      duration: 250,
+      yoyo: true,
+      repeat: -1,
+    });
+    this.time.delayedCall(3000, () => {
+      if (this._badgeBlinkTween) {
+        this._badgeBlinkTween.stop();
+        this._badgeBlinkTween = null;
+        this._journalBadgeBg.setAlpha(1);
+        this._journalBadgeTxt.setAlpha(1);
+      }
+    });
   }
 
   _applyAudioSettings() {
@@ -647,7 +733,10 @@ class UIScene extends Phaser.Scene {
       this.alertHistory[0].time = this.time.now;
     } else {
       this.alertHistory.unshift({ text, time: this.time.now });
-      if (this._journalBadgeBg) this._updateJournalBadge();
+      if (this._journalBadgeBg) {
+        this._updateJournalBadge();
+        this._blinkJournalBadge();
+      }
     }
     // Skip popup display if alerts are disabled
     if (!this.alertsEnabled) return;

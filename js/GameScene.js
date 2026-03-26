@@ -21,13 +21,18 @@ class GameScene extends Phaser.Scene {
     this.lastPreviewCell = null;
     this.woodAlertShown        = false;
     this.treesCut              = 0;
+    this.treesPlanted          = 0;
+    this.totalDeaths           = 0;
+    this.totalHarvests         = 0;
+    this.lostHarvests          = 0;
     this.growingTrees          = [];
     this.gardens               = [];
     this.basins                = []; // { x, y, full: bool, timer: number }
     this.gardenReadyAlertShown   = false;
     this.gardenHarvestAlertShown = false;
     this.farmLimitAlertShown     = false;
-    this.buildLimitAlertShown    = false;
+    this.buildLimitAlertShown        = false;
+    this.waterCrisisBuildAlertShown  = false;
     this.gardenBlinkTimer        = 0;
     this.gardenBlinkOn           = true;
     this.waterCrisisTimer        = 0;
@@ -382,6 +387,7 @@ class GameScene extends Phaser.Scene {
     const reforestTile = this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
     if (reforestTile) reforestTile.flipX = pending.flipX;
     this._pendingReforest = null;
+    this.treesPlanted++;
     this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0, flipX: pending.flipX });
     GameState.changeLandHealth(1);
     this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
@@ -402,7 +408,7 @@ class GameScene extends Phaser.Scene {
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
     const isRaining = this.rain && this.rain.state !== 'idle';
-    if (!isRaining) {
+    if (!isRaining || Math.random() < 1/3) {
       GameState.changeWaterHidden(-1);
       this._floatLabelAtTile(c.x, c.y, +20, '-1', '#1a6abf');
     }
@@ -424,6 +430,15 @@ class GameScene extends Phaser.Scene {
   }
 
   _tryBuild(c, td) {
+    if (GameState.water < 20) {
+      if (!this.waterCrisisBuildAlertShown) {
+        this.waterCrisisBuildAlertShown = true;
+        const ui = this.scene.get('UIScene');
+        if (ui) ui.showAlert(t('alert_build_water_crisis'), true);
+      }
+      return;
+    }
+    this.waterCrisisBuildAlertShown = false;
     if (GameState.wood < GameState.BUILDING_WOOD_COST) return;
     if (this.buildingCells.length > 0 && this.buildingCells.length >= this.gardens.length) {
       if (!this.buildLimitAlertShown) {
@@ -443,6 +458,7 @@ class GameScene extends Phaser.Scene {
     if (buildTile) buildTile.flipX = pending.flipX;
     this._pendingBuild = null;
     GameState.changeWaterHidden(-1);
+    GameState.changeLandHealth(-2);
     const firstBuilding = this.buildingCells.length === 0;
     if (firstBuilding) GameState.shelterBuilt = true;
     this.woodAlertShown = true;
@@ -450,9 +466,10 @@ class GameScene extends Phaser.Scene {
     const spawned = this._spawnPeople(c);
     this._syncCommunity();
     const waterCost = 1 + spawned;
-    this._floatLabelAtTile(c.x, c.y, -32, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
-    this._floatLabelAtTile(c.x, c.y,   0, `-${waterCost}`,                   '#1a6abf');
-    this._floatLabelAtTile(c.x, c.y, +32, `+${spawned}`,                     '#111111');
+    this._floatLabelAtTile(c.x, c.y, -48, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
+    this._floatLabelAtTile(c.x, c.y, -16, `-${waterCost}`,                   '#1a6abf');
+    this._floatLabelAtTile(c.x, c.y, +16, `+${spawned}`,                     '#111111');
+    this._floatLabelAtTile(c.x, c.y, +48, '-2',                              '#2d7a2d');
 
     if (firstBuilding) {
       const ui = this.scene.get('UIScene');
@@ -503,7 +520,7 @@ class GameScene extends Phaser.Scene {
   getRandomDestinationPosition() {
     const all = [
       ...this.buildingCells,
-      ...this.gardens.map(g => ({ x: g.x, y: g.y })),
+      ...this.gardens.filter(g => g.stage !== 2 && g.stage !== 3 && g.stage !== 4).map(g => ({ x: g.x, y: g.y })),
     ];
     if (!all.length) return this.getRandomBuildingPosition();
     const c = all[Math.floor(Math.random() * all.length)];
@@ -514,6 +531,18 @@ class GameScene extends Phaser.Scene {
     const c = this._toCell(wx, wy);
     if (!this._valid(c)) return false;
     return GameState.tiles[c.y][c.x].biome === GameState.TILE_DESERT;
+  }
+
+  isWaterWorldPosition(wx, wy) {
+    const c = this._toCell(wx, wy);
+    if (!this._valid(c)) return false;
+    return GameState.tiles[c.y][c.x].biome === GameState.TILE_WATER;
+  }
+
+  isBuildingWorldPosition(wx, wy) {
+    const c = this._toCell(wx, wy);
+    if (!this._valid(c)) return false;
+    return GameState.tiles[c.y][c.x].biome === GameState.TILE_BUILDING;
   }
 
   // ── Water drain ─────────────────────────────────────────────────────────────
@@ -634,6 +663,7 @@ class GameScene extends Phaser.Scene {
         const t2 = this.biomeLayer.getTileAt(g.x, g.y);
         if (t2) t2.alpha = 1;
         g.stage = 3;
+        this.lostHarvests++;
         g.timer = 0;
         this.biomeLayer.putTileAt(15, g.x, g.y); // gid 15 = withered
       }
@@ -643,6 +673,7 @@ class GameScene extends Phaser.Scene {
   _harvestGarden(c, g) {
     if (this.sndHarvest) this.sndHarvest.play();
     this._harvestCount++;
+    this.totalHarvests++;
     this._firstHarvestDone = true;
     // First harvest: start music after 10s delay (only if not raining)
     if (!this.musicUnlocked && this.rain.state === 'idle') {
@@ -685,7 +716,7 @@ class GameScene extends Phaser.Scene {
     g.timer = 0;
     this.biomeLayer.putTileAt(11, c.x, c.y);
     const isRaining = this.rain && this.rain.state !== 'idle';
-    if (!isRaining) {
+    if (!isRaining || Math.random() < 1/3) {
       GameState.changeWaterHidden(-1);
       this._floatLabelAtTile(c.x, c.y, 0, '-1', '#1a6abf');
     }
@@ -1020,11 +1051,15 @@ class GameScene extends Phaser.Scene {
       this._communityDrainTimer += dt;
       if (this._communityDrainTimer >= waterDrainInterval) {
         this._communityDrainTimer = 0;
-        const idx = Math.floor(Math.random() * this.persons.length);
-        const person = this.persons[idx];
-        this._floatLabel(person.x, person.y, '-1', '#000000');
-        person.destroy();
-        this.persons.splice(idx, 1);
+        const toRemove = Math.max(1, Math.floor(this.persons.length * 0.03));
+        for (let i = 0; i < toRemove; i++) {
+          const idx = Math.floor(Math.random() * this.persons.length);
+          const person = this.persons[idx];
+          this._floatLabel(person.x, person.y, '-1', '#000000');
+          person.destroy();
+          this.persons.splice(idx, 1);
+        }
+        this.totalDeaths += toRemove;
         this._syncCommunity();
       }
     } else {
@@ -1044,11 +1079,15 @@ class GameScene extends Phaser.Scene {
         this._starvationDrainTimer += dt;
         if (this._starvationDrainTimer >= 10) {
           this._starvationDrainTimer = 0;
-          const idx = Math.floor(Math.random() * this.persons.length);
-          const person = this.persons[idx];
-          this._floatLabel(person.x, person.y, '-1', '#000000');
-          person.destroy();
-          this.persons.splice(idx, 1);
+          const toRemove = Math.max(1, Math.floor(this.persons.length * 0.02));
+          for (let i = 0; i < toRemove; i++) {
+            const idx = Math.floor(Math.random() * this.persons.length);
+            const person = this.persons[idx];
+            this._floatLabel(person.x, person.y, '-1', '#000000');
+            person.destroy();
+            this.persons.splice(idx, 1);
+          }
+          this.totalDeaths += toRemove;
           this._syncCommunity();
           if (!this._starvationAlertShown) {
             this._starvationAlertShown = true;

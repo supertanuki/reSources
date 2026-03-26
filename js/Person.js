@@ -8,11 +8,32 @@ class Person {
     this.targetY = y;
     this.stuckTime = 0;
     this.lastDist = 0;
+    this._onWater = false;
 
-    this.sprite = scene.add.rectangle(x, y, 3, 6, 0x000000);
+    this.sprite = scene.add.graphics();
+    this.sprite.setPosition(x, y);
     this.sprite.setDepth(10);
+    this._drawNormal();
 
     this._pickNewTarget();
+  }
+
+  _drawNormal() {
+    this.sprite.clear();
+    this.sprite.fillStyle(0x000000);
+    this.sprite.fillRect(-1, -3, 3, 6);
+  }
+
+  _drawBoat() {
+    this.sprite.clear();
+    this.sprite.fillStyle(0x000000);
+    // mast (3px wide, going up)
+    this.sprite.fillRect(-1, -4, 3, 4);
+    // hull (2px tall, 8px wide)
+    this.sprite.fillRect(-4, 0, 8, 2);
+    // tip pixels at top of each end (pointe du bateau)
+    this.sprite.fillRect(-5, 0, 1, 1);
+    this.sprite.fillRect(4, 0, 1, 1);
   }
 
   update(delta) {
@@ -43,9 +64,14 @@ class Person {
 
     const onDesert = !this.scene.isDesertWorldPosition ||
                      this.scene.isDesertWorldPosition(this.x, this.y);
-    const blocked = onDesert &&
-                    this.scene.isDesertWorldPosition &&
-                    !this.scene.isDesertWorldPosition(nextX, nextY);
+    const onBuilding = this.scene.isBuildingWorldPosition &&
+                       this.scene.isBuildingWorldPosition(this.x, this.y);
+    const nextIsBuilding = this.scene.isBuildingWorldPosition &&
+                           this.scene.isBuildingWorldPosition(nextX, nextY);
+    const blocked = (!onBuilding && nextIsBuilding) ||
+                    (onDesert &&
+                     this.scene.isDesertWorldPosition &&
+                     !this.scene.isDesertWorldPosition(nextX, nextY));
 
     if (blocked) {
       this.stuckTime += dt;
@@ -64,6 +90,14 @@ class Person {
     }
 
     this.lastDist = dist;
+
+    const onWater = this.scene.isWaterWorldPosition
+      ? this.scene.isWaterWorldPosition(this.x, this.y)
+      : false;
+    if (onWater !== this._onWater) {
+      this._onWater = onWater;
+      if (onWater) this._drawBoat(); else this._drawNormal();
+    }
   }
 
   _pickNewTarget() {

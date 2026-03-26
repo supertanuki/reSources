@@ -63,6 +63,7 @@ class TitleScene extends Phaser.Scene {
     langTxt.on('pointerover',  () => langTxt.setTint(0xaaaaaa));
     langTxt.on('pointerout',   () => langTxt.setTint(0x555555));
     langTxt.on('pointerdown',  () => {
+      this.sound.play('sfx-button');
       window._gameLang = window._gameLang === 'fr' ? 'en' : 'fr';
       this.scene.restart();
     });
