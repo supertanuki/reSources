@@ -389,9 +389,7 @@ class GameScene extends Phaser.Scene {
     this._pendingReforest = null;
     this.treesPlanted++;
     this.growingTrees.push({ x: c.x, y: c.y, stage: 0, timer: 0, flipX: pending.flipX });
-    GameState.changeLandHealth(1);
-    this._floatLabelAtTile(c.x, c.y, -20, '-1', '#aa6633');
-    this._floatLabelAtTile(c.x, c.y, +20, '+1', '#2d7a2d');
+    this._floatLabelAtTile(c.x, c.y, 0, '-1', '#aa6633');
   }
 
   _placeFarm(c, td) {
@@ -652,7 +650,6 @@ class GameScene extends Phaser.Scene {
         g.stage++;
         this.biomeLayer.putTileAt(11 + g.stage, g.x, g.y); // gid 12 then 13
         if (g.stage === 2) {
-          GameState.changeLandHealth(1);
           if (!this.gardenReadyAlertShown) {
             this.gardenReadyAlertShown = true;
             const ui = this.scene.get('UIScene');
@@ -748,7 +745,9 @@ class GameScene extends Phaser.Scene {
         if (growTile && t.flipX) growTile.flipX = true;
         if (t.stage === 2) {
           GameState.changeWaterHidden(1);
-          this._floatLabelAtTile(t.x, t.y, 0, '+1', '#1a6abf');
+          GameState.changeLandHealth(1);
+          this._floatLabelAtTile(t.x, t.y, -20, '+1', '#1a6abf');
+          this._floatLabelAtTile(t.x, t.y, +20, '+1', '#2d7a2d');
         }
       }
       return t.stage < 2; // remove once fully grown (stage 2 stays as gid 8)
