@@ -9,6 +9,7 @@ class UIScene extends Phaser.Scene {
     this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
     this.load.audio('sfx-congrats',     'sfx/sfx-congrats.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
+    this.load.spritesheet('tiles', 'art/tiles.png?v7', { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
@@ -85,10 +86,10 @@ class UIScene extends Phaser.Scene {
     }
 
     // Buttons
-    this._btnBuild    = this._makeButton(890,  12, 140, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD));
-    this._btnFarm     = this._makeButton(1045, 12, 140, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false);
-    this._btnReforest = this._makeButton(1200, 12, 140, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false);
-    this._btnBasin    = this._makeButton(1355, 12, 150, t('btn_basin'),   () => this._setAction(GameState.ACTION_BASIN), false);
+    this._btnBuild    = this._makeButton(890,  12, 140, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD),    true,  false, 3);
+    this._btnFarm     = this._makeButton(1045, 12, 140, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false, false, 12);
+    this._btnReforest = this._makeButton(1200, 12, 140, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false, false, 1);
+    this._btnBasin    = this._makeButton(1355, 12, 150, t('btn_basin'),   () => this._setAction(GameState.ACTION_BASIN),   false, false, 9);
     this._btnJournal  = this._makeButton(1520, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
     this._btnSettings = this._makeButton(1630, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
 
@@ -115,18 +116,32 @@ class UIScene extends Phaser.Scene {
     this._refreshButtons();
   }
 
-  _makeButton(x, y, w, label, cb, initialVisible = true, textOnly = false) {
+  _makeButton(x, y, w, label, cb, initialVisible = true, textOnly = false, iconFrame = -1) {
     const h = 46;
+    const hasIcon = iconFrame >= 0 && !textOnly;
+    const ICON_AREA = hasIcon ? 38 : 0; // 6px padding + 32px tile
+
     const bg = this.add.graphics().setVisible(textOnly ? false : initialVisible);
+
+    const txtX = hasIcon ? x + ICON_AREA + (w - ICON_AREA) / 2 : x + w / 2;
     const txt = this.add
-      .bitmapText(x + w / 2, y + h / 2, "pixel", label, 16)
+      .bitmapText(txtX, y + h / 2, "pixel", label, 16)
       .setTint(textOnly ? 0xaaaaaa : 0xffffff)
       .setOrigin(0.5)
       .setVisible(initialVisible);
 
+    let icon = null;
+    if (hasIcon) {
+      icon = this.add.image(x + 6, y + h / 2, 'tiles', iconFrame)
+        .setOrigin(0, 0.5)
+        .setDisplaySize(28, 28)
+        .setVisible(initialVisible)
+        .setDepth(1);
+    }
+
     const zone = this.add.zone(x, y, w, h).setOrigin(0);
     if (initialVisible) zone.setInteractive({ useHandCursor: true });
-    const btn = { bg, txt, zone, x, y, w, h, disabled: false, active: false, hovered: false, textOnly };
+    const btn = { bg, txt, icon, zone, x, y, w, h, disabled: false, active: false, hovered: false, textOnly };
     zone.on("pointerdown",  () => { if (!btn.disabled) { this.sfxButton.play(); cb(); } });
     zone.on("pointerover",  () => { if (!btn.disabled) { btn.hovered = true;  this._drawButton(btn, btn.active, btn.disabled); } });
     zone.on("pointerout",   () => {                       btn.hovered = false; this._drawButton(btn, btn.active, btn.disabled); });
@@ -136,6 +151,7 @@ class UIScene extends Phaser.Scene {
   _setBtnVisible(btn, visible) {
     btn.bg.setVisible(visible);
     btn.txt.setVisible(visible);
+    if (btn.icon) btn.icon.setVisible(visible);
     if (visible) btn.zone.setInteractive({ useHandCursor: true });
     else btn.zone.removeInteractive();
   }
@@ -169,6 +185,7 @@ class UIScene extends Phaser.Scene {
     btn.bg.fillRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
     btn.bg.strokeRoundedRect(btn.x, btn.y, btn.w, btn.h, 4);
     btn.txt.setAlpha(disabled ? 0.5 : 1);
+    if (btn.icon) btn.icon.setAlpha(disabled ? 0.4 : 1);
     btn.zone.setInteractive({ useHandCursor: true });
   }
 
