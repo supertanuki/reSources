@@ -86,10 +86,10 @@ class UIScene extends Phaser.Scene {
     }
 
     // Buttons
-    this._btnBuild    = this._makeButton(890,  12, 140, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD),    true,  false, 3);
-    this._btnFarm     = this._makeButton(1045, 12, 140, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false, false, 12);
-    this._btnReforest = this._makeButton(1200, 12, 140, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false, false, 1);
-    this._btnBasin    = this._makeButton(1355, 12, 150, t('btn_basin'),   () => this._setAction(GameState.ACTION_BASIN),   false, false, 9);
+    this._btnBuild    = this._makeButton(870,  12, 146, t('btn_build'),   () => this._setAction(GameState.ACTION_BUILD),    true,  false, 4);
+    this._btnFarm     = this._makeButton(1025, 12, 146, t('btn_farm'),    () => this._setAction(GameState.ACTION_FARM),    false, false, 12);
+    this._btnReforest = this._makeButton(1180, 12, 146, t('btn_plant'),   () => this._setAction(GameState.ACTION_REFOREST), false, false, 7);
+    this._btnBasin    = this._makeButton(1335, 12, 156, t('btn_basin'),   () => this._setAction(GameState.ACTION_BASIN),   false, false, 9);
     this._btnJournal  = this._makeButton(1520, 12, 112, t('btn_journal'), () => this._openJournal(),  true, true);
     this._btnSettings = this._makeButton(1630, 12, 112, t('btn_settings'),() => this._openSettings(), true, true);
 
@@ -119,15 +119,16 @@ class UIScene extends Phaser.Scene {
   _makeButton(x, y, w, label, cb, initialVisible = true, textOnly = false, iconFrame = -1) {
     const h = 46;
     const hasIcon = iconFrame >= 0 && !textOnly;
-    const ICON_AREA = hasIcon ? 38 : 0; // 6px padding + 32px tile
 
     const bg = this.add.graphics().setVisible(textOnly ? false : initialVisible);
 
-    const txtX = hasIcon ? x + ICON_AREA + (w - ICON_AREA) / 2 : x + w / 2;
+    // Icon: x+6, 28px wide → right edge x+34. Gap 10px → text at x+44.
+    const txtX      = hasIcon ? x + 44 : x + w / 2;
+    const txtOrigin = hasIcon ? 0 : 0.5;
     const txt = this.add
       .bitmapText(txtX, y + h / 2, "pixel", label, 16)
       .setTint(textOnly ? 0xaaaaaa : 0xffffff)
-      .setOrigin(0.5)
+      .setOrigin(txtOrigin, 0.5)
       .setVisible(initialVisible);
 
     let icon = null;
