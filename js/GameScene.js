@@ -48,6 +48,8 @@ class GameScene extends Phaser.Scene {
     this._starving               = false;
     this._starvationDrainTimer   = 0;
     this._starvationAlertShown   = false;
+    this._introPersons           = null;
+    this._introMoving            = false;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -137,6 +139,8 @@ class GameScene extends Phaser.Scene {
     this.load.start();
 
     this.scene.launch('UIScene');
+
+    this._spawnIntroGroup();
 
     // Fade-in
     const fadeW = GameState.MAP_WIDTH * 32, fadeH = GameState.MAP_HEIGHT * 32 + UI_HEIGHT;
@@ -414,6 +418,7 @@ class GameScene extends Phaser.Scene {
     }
     this.farmLimitAlertShown = false;
     if (GameState.wood < 1) return;
+    this._integrateIntroPersons();
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
     const isRaining = this.rain && this.rain.state !== 'idle';
@@ -458,6 +463,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
     this.buildLimitAlertShown = false;
+    this._integrateIntroPersons();
     if (this.sndBuild) this.sndBuild.play();
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
@@ -481,10 +487,16 @@ class GameScene extends Phaser.Scene {
     const waterCost = 1 + spawned;
     this._floatLabelAtTile(c.x, c.y, -48, `-${GameState.BUILDING_WOOD_COST}`, '#aa6633');
     this._floatLabelAtTile(c.x, c.y, -16, `-${waterCost}`,                   '#1a6abf');
-    this._floatLabelAtTile(c.x, c.y, +16, `+${spawned}`,                     '#111111');
+    if (spawned > 0) this._floatLabelAtTile(c.x, c.y, +16, `+${spawned}`,     '#111111');
     this._floatLabelAtTile(c.x, c.y, +48, '-2',                              '#2d7a2d');
 
     if (firstBuilding) {
+      for (const p of this.persons) {
+        if (p._followsCursor) {
+          p._followsCursor = false;
+          p._pickNewTarget();
+        }
+      }
       const ui = this.scene.get('UIScene');
       if (ui) ui.showAlert(t('alert_shelter_built'));
     }
@@ -1004,6 +1016,76 @@ class GameScene extends Phaser.Scene {
     GameState.community = Math.min(100, this.persons.length);
   }
 
+  // ── Intro group ─────────────────────────────────────────────────────────────
+
+  _spawnIntroGroup() {
+    // Find the horizontal run of ≥5 consecutive desert tiles closest to mid-map
+    const midRow = Math.floor(GameState.MAP_HEIGHT / 2);
+    let best = null, bestScore = -1;
+
+    for (let row = 0; row < GameState.MAP_HEIGHT; row++) {
+      let runStart = -1, runLen = 0;
+      for (let col = 0; col <= GameState.MAP_WIDTH; col++) {
+        const desert = col < GameState.MAP_WIDTH &&
+          GameState.tiles[row][col].biome === GameState.TILE_DESERT;
+        if (desert) {
+          if (runStart === -1) runStart = col;
+          runLen++;
+        } else {
+          if (runLen >= 5) {
+            const score = runLen - Math.abs(row - midRow) * 0.1;
+            if (score > bestScore) {
+              bestScore = score;
+              best = { row, colStart: runStart, colEnd: runStart + runLen - 1 };
+            }
+          }
+          runStart = -1; runLen = 0;
+        }
+      }
+    }
+    if (!best) return;
+
+    const { row, colStart, colEnd } = best;
+    const startX     = colEnd * 32 + 16;
+    const baseY      = row * 32 + 16 + UI_HEIGHT;
+    const leftTargetX = colStart * 32;
+
+    // 5 persons spread over ~15px in x, ~8px in y
+    const offsets = [
+      { dx:  0, dy:  0 },
+      { dx:  5, dy: -4 },
+      { dx: -4, dy:  3 },
+      { dx:  8, dy:  3 },
+      { dx: -7, dy: -3 },
+    ];
+
+    this._introPersons = offsets.map(({ dx, dy }) => {
+      const p = new Person(this, startX + dx, baseY + dy);
+      // Override target picking to always aim left with slight Y drift
+      p._pickNewTarget = function() {
+        this.targetX = leftTargetX;
+        this.targetY = this.y + (Math.random() * 16 - 8);
+      };
+      p._pickNewTarget();
+      return p;
+    });
+
+    this._introMoving = true;
+    this.time.delayedCall(3000, () => { this._integrateIntroPersons(); });
+  }
+
+  _integrateIntroPersons() {
+    if (!this._introPersons) return;
+    this._introMoving = false;
+    for (const p of this._introPersons) {
+      delete p._pickNewTarget; // restore prototype behaviour
+      p._followsCursor = true;
+      this.persons.push(p);
+    }
+    this._introPersons = null;
+    this._syncCommunity();
+  }
+
   // ── Update ───────────────────────────────────────────────────────────────────
 
   update(_, delta) {
@@ -1129,6 +1211,17 @@ class GameScene extends Phaser.Scene {
     this._updateGardens(dt);
     this._updateBasins(dt);
 
-    for (const p of this.persons) p.update(delta);
+    if (this._introMoving && this._introPersons) {
+      for (const p of this._introPersons) p.update(delta);
+    }
+
+    const ptr = this.input.activePointer;
+    for (const p of this.persons) {
+      if (p._followsCursor) {
+        p.targetX = ptr.worldX;
+        p.targetY = ptr.worldY;
+      }
+      p.update(delta);
+    }
   }
 }
