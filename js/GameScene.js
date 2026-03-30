@@ -71,6 +71,13 @@ class GameScene extends Phaser.Scene {
     this.previewLayer = this.map.createBlankLayer('preview', this.tileset, 0, UI_HEIGHT);
     this.previewLayer.setAlpha(0.5);
 
+    // Scrolling water background (gid 16 borderless water tile)
+    this._waterBg = this.add.tileSprite(
+      0, UI_HEIGHT,
+      GAME_WIDTH, GAME_HEIGHT - UI_HEIGHT,
+      'tiles', 16
+    ).setOrigin(0, 0).setDepth(-1);
+
     this._generateWorld();
     this._setupInput();
 
@@ -142,7 +149,7 @@ class GameScene extends Phaser.Scene {
   // ── World generation ────────────────────────────────────────────────────────
 
   _generateWorld() {
-    const MIN_WATER = 20;
+    const MIN_WATER = 40;
 
     do {
       this.waterCells = [];
@@ -568,8 +575,13 @@ class GameScene extends Phaser.Scene {
     if (x < 0 || y < 0 || x >= GameState.MAP_WIDTH || y >= GameState.MAP_HEIGHT) return;
     if (GameState.tiles[y][x].biome !== GameState.TILE_WATER) return;
     const [gid, fx] = this._waterTileGid(x, y);
-    const tile = this.biomeLayer.putTileAt(gid, x, y);
-    if (tile) tile.flipX = !!fx;
+    if (gid === 17) {
+      // Fully surrounded (k=15) — no border to draw, let the TileSprite show through
+      this.biomeLayer.removeTileAt(x, y);
+    } else {
+      const tile = this.biomeLayer.putTileAt(gid, x, y);
+      if (tile) tile.flipX = !!fx;
+    }
   }
 
   _refreshWaterNeighbors(x, y) {
@@ -642,10 +654,9 @@ class GameScene extends Phaser.Scene {
     for (const g of this.gardens) {
       if (g.stage === 3 || g.stage === 4) continue; // withered or harvested, waiting for player action
 
-      // Apply blink alpha to stage-2 tiles only in the last 5s before withering
-      if (g.stage === 2) {
-        const tile = this.biomeLayer.getTileAt(g.x, g.y);
-        if (tile) tile.alpha = g.timer >= 5 && this.gardenBlinkOn ? 0.35 : 1;
+      // Blink stage-2 tiles in the last 5s before withering: swap between ready (gid 13) and harvested (gid 14)
+      if (g.stage === 2 && g.timer >= 5) {
+        this.biomeLayer.putTileAt(this.gardenBlinkOn ? 13 : 14, g.x, g.y);
       }
 
       g.timer += dt;
@@ -661,8 +672,6 @@ class GameScene extends Phaser.Scene {
           }
         }
       } else if (g.stage === 2 && g.timer >= 10) {
-        const t2 = this.biomeLayer.getTileAt(g.x, g.y);
-        if (t2) t2.alpha = 1;
         g.stage = 3;
         this.lostHarvests++;
         g.timer = 0;
@@ -1106,6 +1115,9 @@ class GameScene extends Phaser.Scene {
       this._starvationDrainTimer = 0;
       if (!this._firstHarvestDone) this._foodTimer = 0;
     }
+
+    this._waterBg.tilePositionX += 12 * dt;
+    this._waterBg.tilePositionY += 12 * dt;
 
     this._updateRain(dt);
     this._updateGrowingTrees(dt);
