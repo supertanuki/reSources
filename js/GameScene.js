@@ -1116,8 +1116,9 @@ class GameScene extends Phaser.Scene {
       if (!this._firstHarvestDone) this._foodTimer = 0;
     }
 
-    this._waterBg.tilePositionX += 12 * dt;
-    this._waterBg.tilePositionY += 12 * dt;
+    this._waterScroll = (this._waterScroll || 0) + 12 * dt;
+    this._waterBg.tilePositionX = Math.round(this._waterScroll);
+    this._waterBg.tilePositionY = Math.round(this._waterScroll);
 
     this._updateRain(dt);
     this._updateGrowingTrees(dt);
