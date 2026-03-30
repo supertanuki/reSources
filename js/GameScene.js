@@ -3,7 +3,11 @@ class GameScene extends Phaser.Scene {
 
   preload() {
     this.load.spritesheet('tiles', 'art/tiles.png?v8', { frameWidth: 32, frameHeight: 32 });
-    this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
+    this.load.audio('sfx-wind',         'sfx/sfx-wind.mp3');
+    this.load.audio('sfx-button',       'sfx/sfx-button.mp3');
+    this.load.audio('sfx-notification', 'sfx/sfx-notification.mp3');
+    this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
+    this.load.audio('sfx-congrats',     'sfx/sfx-congrats.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
 
