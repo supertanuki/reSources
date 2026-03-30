@@ -9,7 +9,7 @@ class UIScene extends Phaser.Scene {
     this.load.audio('sfx-warning',      'sfx/sfx-warning.mp3');
     this.load.audio('sfx-congrats',     'sfx/sfx-congrats.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
-    this.load.spritesheet('tiles', 'art/tiles.png?v7', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v8', { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {

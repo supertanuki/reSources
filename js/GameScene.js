@@ -2,7 +2,7 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
-    this.load.spritesheet('tiles', 'art/tiles.png?v7', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('tiles', 'art/tiles.png?v8', { frameWidth: 32, frameHeight: 32 });
     this.load.audio('sfx-wind', 'sfx/sfx-wind.mp3');
     this.load.bitmapFont('pixel', 'font/FreePixel-16.png', 'font/FreePixel-16.xml?v1');
   }
@@ -452,9 +452,13 @@ class GameScene extends Phaser.Scene {
     td.building = 'hut';
     td.biome = GameState.TILE_BUILDING;
     const pending = this._pendingBuild || { gid: Math.random() < 0.5 ? 4 : 5, flipX: Math.random() < 0.5 };
-    const buildTile = this.biomeLayer.putTileAt(pending.gid, c.x, c.y);
+    const buildTile = this.biomeLayer.putTileAt(3, c.x, c.y); // gid 3 = under construction
     if (buildTile) buildTile.flipX = pending.flipX;
     this._pendingBuild = null;
+    this.time.delayedCall(2000, () => {
+      const finalTile = this.biomeLayer.putTileAt(pending.gid, c.x, c.y);
+      if (finalTile) finalTile.flipX = pending.flipX;
+    });
     GameState.changeWaterHidden(-1);
     GameState.changeLandHealth(-2);
     const firstBuilding = this.buildingCells.length === 0;
