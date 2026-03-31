@@ -8,6 +8,8 @@ class Person {
     this.stuckTime = 0;
     this._lastDist = 0;
     this._onWater = false;
+    this._pauseTimer    = 0;
+    this._pauseOnArrival = 0;
 
     this.sprite = scene.add.graphics();
     this.sprite.setPosition(x, y);
@@ -38,6 +40,12 @@ class Person {
   update(delta) {
     const dt = delta / 1000;
 
+    // Intentional pause (e.g. arrived at building entrance)
+    if (this._pauseTimer > 0) {
+      this._pauseTimer -= dt;
+      return;
+    }
+
     // No path → wait briefly then pick a new one
     if (this._path.length === 0) {
       this.stuckTime += dt;
@@ -51,9 +59,17 @@ class Person {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     // Reached waypoint → advance to the next one
-    if (dist < 4) {
+    const arrivalThreshold = (this._path.length === 1 && this._pauseOnArrival > 0) ? 1.5 : 4;
+    if (dist < arrivalThreshold) {
       this._path.shift();
-      if (this._path.length === 0) this._pickNewTarget();
+      if (this._path.length === 0) {
+        if (this._pauseOnArrival > 0) {
+          this._pauseTimer    = this._pauseOnArrival;
+          this._pauseOnArrival = 0;
+        } else {
+          this._pickNewTarget();
+        }
+      }
       this.stuckTime = 0;
       this._lastDist = 0;
       return;
@@ -111,7 +127,10 @@ class Person {
           : { x: this.x, y: this.y };
         const path = this.scene.findPath({ x: this.x, y: this.y }, dest);
         if (path && path.length > 0) {
-          this._path = path; this._pathAllowsWater = false; return;
+          this._path = this._jitterPath(path, dest.pause > 0 ? dest : null);
+          this._pathAllowsWater = false;
+          this._pauseOnArrival = dest.pause || 0;
+          return;
         }
       }
       // No reachable destination — retry allowing water to escape
@@ -120,7 +139,7 @@ class Person {
         : { x: this.x, y: this.y };
       const path = this.scene.findPath({ x: this.x, y: this.y }, dest, true);
       if (path && path.length > 0) {
-        this._path = path; this._pathAllowsWater = true; return;
+        this._path = this._jitterPath(path); this._pathAllowsWater = true; return;
       }
       // Still nothing — leave path empty, stuck timer will retry
     }
@@ -133,6 +152,22 @@ class Person {
       x: dest.x + (Math.random() * 16 - 8),
       y: dest.y + (Math.random() * 16 - 8),
     }];
+  }
+
+  _jitterPath(path, exactEnd = null) {
+    let prevX = this.x, prevY = this.y;
+    return path.map((wp, i) => {
+      const isLast = i === path.length - 1;
+      // Keep the final waypoint exact when the person must stop precisely there
+      if (isLast && exactEnd) { prevX = wp.x; prevY = wp.y; return { x: exactEnd.x, y: exactEnd.y }; }
+      const dx = wp.x - prevX;
+      const dy = wp.y - prevY;
+      const offset = (Math.random() * 20) - 10;
+      const jx = Math.abs(dy) > Math.abs(dx) ? offset : 0;
+      const jy = Math.abs(dx) > Math.abs(dy) ? offset : 0;
+      prevX = wp.x; prevY = wp.y;
+      return { x: wp.x + jx, y: wp.y + jy };
+    });
   }
 
   destroy() { this.sprite.destroy(); }

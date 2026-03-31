@@ -540,13 +540,31 @@ class GameScene extends Phaser.Scene {
   }
 
   getRandomDestinationPosition() {
-    const all = [
-      ...this.buildingCells,
-      ...this.gardens.filter(g => g.stage !== 2 && g.stage !== 3 && g.stage !== 4).map(g => ({ x: g.x, y: g.y })),
-    ];
+    const buildings = this.buildingCells;
+    const gardens   = this.gardens.filter(g => g.stage !== 2 && g.stage !== 3 && g.stage !== 4)
+                                  .map(g => ({ x: g.x, y: g.y }));
+    const all = [...buildings, ...gardens];
     if (!all.length) return this.getRandomBuildingPosition();
+
     const c = all[Math.floor(Math.random() * all.length)];
-    return { x: c.x * 32 + 16, y: c.y * 32 + 16 + UI_HEIGHT };
+    const isBuilding = buildings.some(b => b.x === c.x && b.y === c.y);
+
+    if (isBuilding) {
+      // Target the north edge of the tile just south of the building
+      const sy = c.y + 1;
+      if (sy < GameState.MAP_HEIGHT) {
+        const td = GameState.tiles[sy][c.x];
+        const southPassable = td.biome !== GameState.TILE_WATER &&
+                              td.biome !== GameState.TILE_BUILDING &&
+                              td.biome !== GameState.TILE_FARM &&
+                              !(td.biome === GameState.TILE_FOREST && td.has_tree);
+        if (southPassable) {
+          return { x: c.x * 32 + 16, y: sy * 32 + UI_HEIGHT, pause: 2 };
+        }
+      }
+    }
+
+    return { x: c.x * 32 + 16, y: c.y * 32 + 16 + UI_HEIGHT, pause: 0 };
   }
 
   isPassableWorldPosition(wx, wy) {
@@ -1297,7 +1315,7 @@ class GameScene extends Phaser.Scene {
       if (!this._firstHarvestDone) this._foodTimer = 0;
     }
 
-    this._waterScroll = (this._waterScroll || 0) + 12 * dt;
+    this._waterScroll = (this._waterScroll || 0) + (isRaining ? 14 : 8) * dt;
     this._waterBg.tilePositionX = Math.round(this._waterScroll);
     this._waterBg.tilePositionY = Math.round(this._waterScroll);
 
