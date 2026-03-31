@@ -109,10 +109,9 @@ class Person {
     }
     this._lastDist = dist;
 
-    // Water / boat visual
-    const onWater = this.scene.isWaterWorldPosition
-      ? this.scene.isWaterWorldPosition(this.x, this.y)
-      : false;
+    // Water / boat visual (also triggers on basin tiles)
+    const onWater = (this.scene.isWaterWorldPosition && this.scene.isWaterWorldPosition(this.x, this.y)) ||
+                    (this.scene.isBasinWorldPosition  && this.scene.isBasinWorldPosition(this.x, this.y));
     if (onWater !== this._onWater) {
       this._onWater = onWater;
       if (onWater) this._drawBoat(); else this._drawNormal();

@@ -555,6 +555,7 @@ class GameScene extends Phaser.Scene {
       if (sy < GameState.MAP_HEIGHT) {
         const td = GameState.tiles[sy][c.x];
         const southPassable = td.biome !== GameState.TILE_WATER &&
+                              td.biome !== GameState.TILE_BASIN &&
                               td.biome !== GameState.TILE_BUILDING &&
                               td.biome !== GameState.TILE_FARM &&
                               !(td.biome === GameState.TILE_FOREST && td.has_tree);
@@ -572,6 +573,7 @@ class GameScene extends Phaser.Scene {
     if (!this._valid(c)) return false;
     const td = GameState.tiles[c.y][c.x];
     return td.biome !== GameState.TILE_WATER &&
+           td.biome !== GameState.TILE_BASIN &&
            td.biome !== GameState.TILE_BUILDING &&
            td.biome !== GameState.TILE_FARM &&
            !(td.biome === GameState.TILE_FOREST && td.has_tree);
@@ -587,6 +589,13 @@ class GameScene extends Phaser.Scene {
     const c = this._toCell(wx, wy);
     if (!this._valid(c)) return false;
     return GameState.tiles[c.y][c.x].biome === GameState.TILE_WATER;
+  }
+
+  isBasinWorldPosition(wx, wy) {
+    const c = this._toCell(wx, wy);
+    if (!this._valid(c)) return false;
+    if (GameState.tiles[c.y][c.x].biome !== GameState.TILE_BASIN) return false;
+    return this.basins.some(b => b.x === c.x && b.y === c.y && b.full);
   }
 
   isBuildingWorldPosition(wx, wy) {
@@ -1058,7 +1067,7 @@ class GameScene extends Phaser.Scene {
     const walkable = (x, y) => {
       if (x < 0 || y < 0 || x >= W || y >= H) return false;
       const td = GameState.tiles[y][x];
-      return (allowWater || td.biome !== GameState.TILE_WATER) &&
+      return (allowWater || (td.biome !== GameState.TILE_WATER && td.biome !== GameState.TILE_BASIN)) &&
              td.biome !== GameState.TILE_BUILDING &&
              td.biome !== GameState.TILE_FARM &&
              !(td.biome === GameState.TILE_FOREST && td.has_tree);
