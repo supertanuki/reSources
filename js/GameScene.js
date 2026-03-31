@@ -48,8 +48,6 @@ class GameScene extends Phaser.Scene {
     this._starving               = false;
     this._starvationDrainTimer   = 0;
     this._starvationAlertShown   = false;
-    this._introPersons           = null;
-    this._introMoving            = false;
 
     // Rain
     this.rain = { state: 'idle', phaseTimer: 0, duration: 0, nextTimer: 0, drops: [], started: false, lightningTimer: 0, lightningDelay: 0 };
@@ -398,6 +396,7 @@ class GameScene extends Phaser.Scene {
     GameState.wood -= 1;
     td.biome = GameState.TILE_FOREST;
     td.has_tree = true;
+    this._invalidatePathsThrough(c.x, c.y);
     const pending = this._pendingReforest || { flipX: Math.random() < 0.5 };
     const reforestTile = this.biomeLayer.putTileAt(6, c.x, c.y); // gid 6 = sapling stage 1
     if (reforestTile) reforestTile.flipX = pending.flipX;
@@ -418,7 +417,6 @@ class GameScene extends Phaser.Scene {
     }
     this.farmLimitAlertShown = false;
     if (GameState.wood < 1) return;
-    this._integrateIntroPersons();
     if (this.sndPlaceTile) this.sndPlaceTile.play();
     GameState.wood -= 1;
     const isRaining = this.rain && this.rain.state !== 'idle';
@@ -463,7 +461,6 @@ class GameScene extends Phaser.Scene {
       return;
     }
     this.buildLimitAlertShown = false;
-    this._integrateIntroPersons();
     if (this.sndBuild) this.sndBuild.play();
     GameState.wood -= GameState.BUILDING_WOOD_COST;
     td.building = 'hut';
@@ -550,6 +547,16 @@ class GameScene extends Phaser.Scene {
     if (!all.length) return this.getRandomBuildingPosition();
     const c = all[Math.floor(Math.random() * all.length)];
     return { x: c.x * 32 + 16, y: c.y * 32 + 16 + UI_HEIGHT };
+  }
+
+  isPassableWorldPosition(wx, wy) {
+    const c = this._toCell(wx, wy);
+    if (!this._valid(c)) return false;
+    const td = GameState.tiles[c.y][c.x];
+    return td.biome !== GameState.TILE_WATER &&
+           td.biome !== GameState.TILE_BUILDING &&
+           td.biome !== GameState.TILE_FARM &&
+           !(td.biome === GameState.TILE_FOREST && td.has_tree);
   }
 
   isDesertWorldPosition(wx, wy) {
@@ -1016,6 +1023,114 @@ class GameScene extends Phaser.Scene {
     GameState.community = Math.min(100, this.persons.length);
   }
 
+  // ── Pathfinding (A*) ────────────────────────────────────────────────────────
+
+  findPath(fromWorld, toWorld, allowWater = false) {
+    const W = GameState.MAP_WIDTH, H = GameState.MAP_HEIGHT;
+
+    // World → cell (clamped)
+    const cell = (wx, wy) => ({
+      x: Math.max(0, Math.min(W - 1, Math.floor(wx / 32))),
+      y: Math.max(0, Math.min(H - 1, Math.floor((wy - UI_HEIGHT) / 32))),
+    });
+
+    const from = cell(fromWorld.x, fromWorld.y);
+    let   { x: tx, y: ty } = cell(toWorld.x, toWorld.y);
+
+    const walkable = (x, y) => {
+      if (x < 0 || y < 0 || x >= W || y >= H) return false;
+      const td = GameState.tiles[y][x];
+      return (allowWater || td.biome !== GameState.TILE_WATER) &&
+             td.biome !== GameState.TILE_BUILDING &&
+             td.biome !== GameState.TILE_FARM &&
+             !(td.biome === GameState.TILE_FOREST && td.has_tree);
+    };
+
+    // If target cell is blocked, use nearest walkable neighbour
+    if (!walkable(tx, ty)) {
+      const ring = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1},
+                    {x:1,y:1},{x:-1,y:1},{x:1,y:-1},{x:-1,y:-1}];
+      let found = false;
+      for (const d of ring) {
+        if (walkable(tx + d.x, ty + d.y)) { tx += d.x; ty += d.y; found = true; break; }
+      }
+      if (!found) return null;
+    }
+
+    if (from.x === tx && from.y === ty) return [];
+
+    const idx  = (x, y) => y * W + x;
+    const h    = (x, y) => Math.abs(x - tx) + Math.abs(y - ty);
+
+    const SIZE   = W * H;
+    const gScore = new Float32Array(SIZE).fill(Infinity);
+    const parent = new Int32Array(SIZE).fill(-1);
+    const closed = new Uint8Array(SIZE);
+
+    // 8-directional neighbours [dx, dy, cost]
+    const DIRS = [
+      [1,0,1],[-1,0,1],[0,1,1],[0,-1,1],
+      [1,1,1.414],[-1,1,1.414],[1,-1,1.414],[-1,-1,1.414],
+    ];
+
+    const startIdx = idx(from.x, from.y);
+    gScore[startIdx] = 0;
+    const open = [[h(from.x, from.y), from.x, from.y]]; // [f, x, y]
+
+    while (open.length > 0) {
+      // Pop node with lowest f (linear scan — fast enough for this grid size)
+      let mi = 0;
+      for (let i = 1; i < open.length; i++) { if (open[i][0] < open[mi][0]) mi = i; }
+      const [, cx, cy] = open[mi];
+      open[mi] = open[open.length - 1];
+      open.pop();
+
+      const ci = idx(cx, cy);
+      if (closed[ci]) continue;
+      closed[ci] = 1;
+
+      if (cx === tx && cy === ty) {
+        // Reconstruct path (world centres, skip start cell)
+        const path = [];
+        let k = ci;
+        while (parent[k] !== -1) {
+          path.unshift({ x: (k % W) * 32 + 16, y: Math.floor(k / W) * 32 + 16 + UI_HEIGHT });
+          k = parent[k];
+        }
+        return path;
+      }
+
+      const cg = gScore[ci];
+      for (const [dx, dy, cost] of DIRS) {
+        const nx = cx + dx, ny = cy + dy;
+        if (!walkable(nx, ny)) continue;
+        // No corner-cutting through diagonals
+        if (cost > 1 && (!walkable(cx + dx, cy) || !walkable(cx, cy + dy))) continue;
+        const ni = idx(nx, ny);
+        if (closed[ni]) continue;
+        const ng = cg + cost;
+        if (ng < gScore[ni]) {
+          gScore[ni] = ng;
+          parent[ni] = ci;
+          open.push([ng + h(nx, ny), nx, ny]);
+        }
+      }
+    }
+
+    return null; // no path found
+  }
+
+  _invalidatePathsThrough(cx, cy) {
+    const all = this.persons;
+    for (const p of all) {
+      if (p._path.some(wp => {
+        const x = Math.floor(wp.x / 32);
+        const y = Math.floor((wp.y - UI_HEIGHT) / 32);
+        return x === cx && y === cy;
+      })) p._path = [];
+    }
+  }
+
   // ── Intro group ─────────────────────────────────────────────────────────────
 
   _spawnIntroGroup() {
@@ -1045,10 +1160,9 @@ class GameScene extends Phaser.Scene {
     }
     if (!best) return;
 
-    const { row, colStart, colEnd } = best;
-    const startX     = colEnd * 32 + 16;
-    const baseY      = row * 32 + 16 + UI_HEIGHT;
-    const leftTargetX = colStart * 32;
+    const { row, colEnd } = best;
+    const startX = colEnd * 32 + 16;
+    const baseY  = row * 32 + 16 + UI_HEIGHT;
 
     // 5 persons spread over ~15px in x, ~8px in y
     const offsets = [
@@ -1059,30 +1173,11 @@ class GameScene extends Phaser.Scene {
       { dx: -7, dy: -3 },
     ];
 
-    this._introPersons = offsets.map(({ dx, dy }) => {
+    for (const { dx, dy } of offsets) {
       const p = new Person(this, startX + dx, baseY + dy);
-      // Override target picking to always aim left with slight Y drift
-      p._pickNewTarget = function() {
-        this.targetX = leftTargetX;
-        this.targetY = this.y + (Math.random() * 16 - 8);
-      };
-      p._pickNewTarget();
-      return p;
-    });
-
-    this._introMoving = true;
-    this.time.delayedCall(3000, () => { this._integrateIntroPersons(); });
-  }
-
-  _integrateIntroPersons() {
-    if (!this._introPersons) return;
-    this._introMoving = false;
-    for (const p of this._introPersons) {
-      delete p._pickNewTarget; // restore prototype behaviour
       p._followsCursor = true;
       this.persons.push(p);
     }
-    this._introPersons = null;
     this._syncCommunity();
   }
 
@@ -1211,15 +1306,19 @@ class GameScene extends Phaser.Scene {
     this._updateGardens(dt);
     this._updateBasins(dt);
 
-    if (this._introMoving && this._introPersons) {
-      for (const p of this._introPersons) p.update(delta);
-    }
+
 
     const ptr = this.input.activePointer;
     for (const p of this.persons) {
       if (p._followsCursor) {
-        p.targetX = ptr.worldX;
-        p.targetY = ptr.worldY;
+        const dest = { x: ptr.worldX, y: ptr.worldY };
+        const prev = p._cursorDest;
+        const moved = !prev ||
+          Math.abs(dest.x - prev.x) > 16 || Math.abs(dest.y - prev.y) > 16;
+        if (moved || p._path.length === 0) {
+          const path = this.findPath({ x: p.x, y: p.y }, dest); // no allowWater
+          if (path) { p._path = path; p._cursorDest = dest; }
+        }
       }
       p.update(delta);
     }
